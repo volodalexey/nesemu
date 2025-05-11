@@ -3,7 +3,7 @@ import fsPromises from 'node:fs/promises'
 import {Addressing, Instruction, OpType, kInstTable} from '../src/nes/cpu/inst'
 import {kOpcode} from '../src/nes/cpu/disasm'
 import {Util} from '../src/util/util'
-import {program} from 'commander'
+import program from 'commander'
 
 function loadPrgRom(romData: Uint8Array): Uint8Array {
   const start = 16, size = romData[4] * (16 * 1024)
@@ -29,7 +29,6 @@ function isBranch(opType: OpType): boolean {
   case OpType.BNE:
   case OpType.BEQ:
   case OpType.BVC:
-  case OpType.BCS:
     return true
   default:
     return false
@@ -104,7 +103,7 @@ class Analyzer {
   }
 
   private isInBlock(adr: number): boolean {
-    for (let block of this.blocks) {
+    for (const block of this.blocks) {
       if (adr >= block.start && adr < block.end)
         return true
     }
@@ -124,7 +123,7 @@ class Analyzer {
 
   public output(): void {
     // Labels
-    for (let adr of Array.from(this.labels.keys()).sort((a, b) => a - b)) {
+    for (const adr of Array.from(this.labels.keys()).sort((a, b) => a - b)) {
       const label = this.labels.get(adr)!
       if (label.isCode || label.isJumpTable)
         continue
@@ -133,7 +132,7 @@ class Analyzer {
 
     // Blocks
     let prevAdr = this.startAdr
-    for (let block of this.blocks) {
+    for (const block of this.blocks) {
       if (prevAdr < block.start) {
         const label = this.labels.get(prevAdr)
         if (label)
@@ -318,13 +317,13 @@ class Analyzer {
       }
       break
     case Addressing.INDIRECT:
-      operand = ` (\$${Util.hex(mem[start] | (mem[start + 1] << 8), 4)})`
+      operand = ` ($${Util.hex(mem[start] | (mem[start + 1] << 8), 4)})`
       break
     case Addressing.INDIRECT_X:
-      operand = ` (\$${Util.hex(mem[start], 2)}, X)`
+      operand = ` ($${Util.hex(mem[start], 2)}, X)`
       break
     case Addressing.INDIRECT_Y:
-      operand = ` (\$${Util.hex(mem[start], 2)}), Y`
+      operand = ` ($${Util.hex(mem[start], 2)}), Y`
       break
     case Addressing.RELATIVE:
       {
@@ -387,12 +386,12 @@ async function main(argv: string[]): Promise<void> {
     const str = await fsPromises.readFile(options.config, 'utf8')
     const json = eval(`(${str})`)
     if (json.jumpRoutines) {
-      for (let adr of json.jumpRoutines) {
+      for (const adr of json.jumpRoutines) {
         analyzer.addJumpRoutine(adr)
       }
     }
     if (json.stopAnalyze) {
-      for (let adr of json.stopAnalyze) {
+      for (const adr of json.stopAnalyze) {
         analyzer.addStopAnalyze(adr)
       }
     }
@@ -400,7 +399,7 @@ async function main(argv: string[]): Promise<void> {
       analyzer.setLabelNameTable(json.labels)
     }
     if (json.jumpTable) {
-      for (let jt of json.jumpTable) {
+      for (const jt of json.jumpTable) {
         analyzer.addJumpTable(jt.address, jt.count)
       }
     }

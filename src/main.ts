@@ -13,15 +13,10 @@ import {Util} from './util/util'
 import {WindowManager} from './wnd/window_manager'
 import {Nes} from './nes/nes'
 import './util/polyfill'
-import {unzip, Unzipped} from 'fflate'
+import {unzip, UnzipFileInfo, Unzipped} from 'fflate'
 
 import audioOnImg from './res/audio_on.png'
 import audioOffImg from './res/audio_off.png'
-
-// Request Animation Frame
-window.requestAnimationFrame =
-  (window.requestAnimationFrame || window.mozRequestAnimationFrame ||
-   /*window.webkitRequestAnimationFrame ||*/ window.msRequestAnimationFrame)
 
 class Main {
   private wndMgr: WindowManager
@@ -52,8 +47,7 @@ class Main {
   }
 
   public shutDown(): void {
-    for (const app of this.apps)
-      app.destroy()
+    for (const app of this.apps) app.destroy()
     GlobalSetting.destroy()
   }
 
@@ -66,11 +60,9 @@ class Main {
           input.type = 'file'
           input.accept = '.nes,.sav,.zip, application/zip'
           input.onchange = _event => {
-            if (!input.value)
-              return
+            if (!input.value) return
             const fileList = input.files
-            if (fileList)
-              this.createAppFromFiles(fileList, 0, 0)
+            if (fileList) this.createAppFromFiles(fileList, 0, 0)
 
             // Clear.
             input.value = ''
@@ -110,21 +102,18 @@ class Main {
 
   private setUpFileDrop(): void {
     const dropDesc = document.getElementById('drop-desc')
-    if (!dropDesc)
-      return
+    if (!dropDesc) return
 
     dropDesc.innerText = 'Drop .nes file here'
-
-    // Handle file drop.
-    if (!(window.File && window.FileReader && window.FileList && window.Blob)) {
-      dropDesc.style.display = 'none'
-      return
-    }
-    dropDesc.style.opacity = '0'
 
     DomUtil.handleFileDrop(this.root, (files, x, y) => {
       this.createAppFromFiles(files, x, y)
       dropDesc.style.display = 'none'
+    })
+
+    const dropFile = document.getElementById('drop-file')
+    dropFile?.addEventListener('change', (e: Event) => {
+      console.debug(e)
     })
   }
 
@@ -134,49 +123,46 @@ class Main {
     // Unzip and flatten.
     type Result = {type: string; binary: Uint8Array; fileName: string}
     const promises = Array.from(files)
-      .map(file => { return {file, ext: Util.getExt(file.name).toLowerCase()} })
+      .map(file => {
+        return {file, ext: Util.getExt(file.name).toLowerCase()}
+      })
       .filter(({file, ext}) => {
-        if (ext !== 'js')
-          return true
+        if (ext !== 'js') return true
 
         // Create .js app
         const jsNes = new JsNes()
-        const jsApp = new JsApp(this.wndMgr, {
-          title: file.name,
-          centerX: x,
-          centerY: y,
-          onClosed: app => this.removeApp(app),
-        }, jsNes)
+        const jsApp = new JsApp(
+          this.wndMgr,
+          {
+            title: file.name,
+            centerX: x,
+            centerY: y,
+            onClosed: app => this.removeApp(app),
+          },
+          jsNes,
+        )
         jsApp.setFile(file)
         this.apps.push(jsApp)
         return false
       })
       .map(async ({file, ext}) => {
-        function promisify(f: Function) {
-          return (...args: any[]) =>  {
-            return new Promise<Unzipped>((resolve, reject) => {
-              f(...args, (err: any, result: any) => {
-                if (err != null)
-                  reject(err)
-                else
-                  resolve(result)
-              })
-            })
-          }
-        }
-
         if (ext === 'zip') {
           const binary = await DomUtil.loadFile(file)
           const options = {
-            filter(file: any) {
+            filter(file: UnzipFileInfo) {
               const ext2 = Util.getExt(file.name).toLowerCase()
               return kTargetExts.has(ext2)
             },
           }
-          const loadedZip = await promisify(unzip)(binary, options)
+          const loadedZip = await new Promise<Unzipped>((resolve, reject) => {
+            unzip(binary, options, (err, result) => {
+              if (err != null) reject(err)
+              else resolve(result)
+            })
+          })
           for (const fileName2 of Object.keys(loadedZip)) {
             const ext2 = Util.getExt(fileName2).toLowerCase()
-            console.assert(kTargetExts.has(ext2))  // Already filtered.
+            console.assert(kTargetExts.has(ext2)) // Already filtered.
             const unzipped = loadedZip[fileName2]
             return {type: ext2, binary: unzipped, fileName: fileName2}
           }
@@ -192,14 +178,14 @@ class Main {
       const results = await Promise.all(promises)
       const typeMap: Record<string, Array<Result>> = {}
       results.forEach(result => {
-        if (!typeMap[result.type])
-          typeMap[result.type] = []
+        if (!typeMap[result.type]) typeMap[result.type] = []
         typeMap[result.type].push(result)
       })
       // .bin: Disk BIOS
       if (typeMap.bin) {
         this.diskBios = typeMap.bin[0].binary
-        if (!typeMap.fds) {  // Boot disk system without inserting disk.
+        if (!typeMap.fds) {
+          // Boot disk system without inserting disk.
           this.uninsertedApp = this.bootDiskImage(this.diskBios, null, 'DISK System', x, y)
         }
       }
@@ -240,15 +226,18 @@ class Main {
           app.loadDataFromBinary(file.binary)
         }
       }
-    } catch (e: any) {
-      this.wndMgr.showSnackbar(e.toString())
+    } catch (e) {
+      if (e instanceof Error) {
+        this.wndMgr.showSnackbar(e.toString())
+      } else {
+        console.error(e)
+      }
     }
   }
 
-  private findActiveApp(): App|null {
+  private findActiveApp(): App | null {
     for (const app of this.apps) {
-      if (app.isTop())
-        return app
+      if (app.isTop()) return app
     }
     return null
   }
@@ -275,9 +264,13 @@ class Main {
     this.apps.push(app)
   }
 
-  private bootDiskImage(biosData: Uint8Array, diskImage: Uint8Array|null, name: string,
-                        x: number, y: number): App
-  {
+  private bootDiskImage(
+    biosData: Uint8Array,
+    diskImage: Uint8Array | null,
+    name: string,
+    x: number,
+    y: number,
+  ): App {
     const m = name.match(/^(.*?)\s*\(.*\)\.\w*$/)
     const title = m ? m[1] : name
     const option: Option = {
@@ -292,16 +285,14 @@ class Main {
     const nes = new Nes()
     const app = App.create(this.wndMgr, option, nes)
     app.bootDiskBios(biosData)
-    if (diskImage != null)
-      app.setDiskImage(diskImage)
+    if (diskImage != null) app.setDiskImage(diskImage)
     this.apps.push(app)
     return app
   }
 
   private removeApp(app: App): void {
     const index = this.apps.indexOf(app)
-    if (index >= 0)
-      this.apps.splice(index, 1)
+    if (index >= 0) this.apps.splice(index, 1)
   }
 
   private openGlobalPaletWnd(): void {
@@ -370,12 +361,10 @@ class Main {
 
   private setUpBlur(): void {
     window.addEventListener('blur', () => {
-      if (GlobalSetting.muteOnInactive)
-        this.onFocusChanged(false)
+      if (GlobalSetting.muteOnInactive) this.onFocusChanged(false)
     })
     window.addEventListener('focus', () => {
-      if (GlobalSetting.muteOnInactive)
-        this.onFocusChanged(true)
+      if (GlobalSetting.muteOnInactive) this.onFocusChanged(true)
     })
   }
 
@@ -393,8 +382,7 @@ class Main {
       let muted: boolean
       if (!this.audioEnabled) {
         AudioManager.enableAudio()
-        for (const app of this.apps)
-          app.setupAudioManager()
+        for (const app of this.apps) app.setupAudioManager()
         this.audioEnabled = true
         muted = false
       } else {
@@ -427,14 +415,24 @@ class Main {
 
 let main: Main
 
-window.addEventListener('load', () => {
+window.addEventListener('DOMContentLoaded', () => {
+  if (
+    !(
+      globalThis.File &&
+      globalThis.FileReader &&
+      globalThis.FileList &&
+      globalThis.Blob &&
+      globalThis.requestAnimationFrame
+    )
+  ) {
+    return alert('Not supported!')
+  }
   StorageUtil.setKeyPrefix('nesemu:')
   PadKeyHandler.setUp()
   GamepadManager.setUp()
 
   const root = document.getElementById('nesroot')
-  if (root != null)
-    main = new Main(root)
+  if (root != null) main = new Main(root)
 })
 
 window.addEventListener('beforeunload', () => main?.shutDown())

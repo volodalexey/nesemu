@@ -48,7 +48,7 @@ function formatNumLiteral(literal: string): string|null {
     const t1 = parseAtom()
     if (t1 == null)
       return null
-    const m = p.match(/^\s*([+\-*\/<>])(.*)/)
+    const m = p.match(/^\s*([+\-*/<>])(.*)/)
     if (!m)
       return t1
     p = m[2]
@@ -288,8 +288,8 @@ class ByteData {
 
     // Generate data.
     const data = new Array<string>()
-    for (let d of directives) {
-      for (let e of d.operand.split(',')) {
+    for (const d of directives) {
+      for (const e of d.operand.split(',')) {
         data.push(e.trim())
       }
     }
@@ -363,7 +363,7 @@ class Converter {
   public outputLabels(): void {
     // Call after buildLabels()
     console.log('  // Lables')
-    for (let line of this.lines) {
+    for (const line of this.lines) {
       if ((line instanceof Label) && !line.isRomDataLabel) {
         console.log(`  const ${line.name} = ${line.pcNo}`)
       }
@@ -371,14 +371,14 @@ class Converter {
 
     // Rom data addresses
     console.log('\n  // Rom data addresses')
-    for (let rd of this.romData) {
+    for (const rd of this.romData) {
       console.log(`  const ${rd.label.name} = 0x${rd.label.pcNo.toString(16)}`)
     }
   }
 
   public outputDefinitions(): void {
     console.log('  // Definitions')
-    for (let line of this.lines) {
+    for (const line of this.lines) {
       if (line instanceof Definition) {
         console.log(`  const ${line.toString()}`.trimRight())
       }
@@ -433,7 +433,7 @@ class Converter {
   // Rom data
   const ROM_DATA = [`)
     let totalSize = 0
-    for (let rd of this.romData) {
+    for (const rd of this.romData) {
       console.log(`    // ${rd.label.name}: 0x${rd.label.pcNo.toString(16)}`)
       if (rd.data.length === 0) {
         console.log(`    // Empty`)
@@ -466,7 +466,7 @@ function step(pc) {
     let pc = 0
     let emptyLineCount = 0
     for (let i = 0; i < this.lines.length; ++i) {
-      let line = this.lines[i]
+      const line = this.lines[i]
       let s
       let emptyLine = false
       if (!((line instanceof Label) && line.isRomDataLabel))
@@ -496,6 +496,7 @@ function step(pc) {
         if (s) {
           console.log(s.trimEnd())
         } else {
+          // skip
         }
       }
     }
@@ -506,7 +507,7 @@ function step(pc) {
 async function main() {
   const lines = new Array<Line>()
   await readAllLine(process.stdin, (line: string) => {
-    let item = parseLine(line)
+    const item = parseLine(line)
     if (item != null) {
       if (Array.isArray(item))
         Array.prototype.push.apply(lines, item)

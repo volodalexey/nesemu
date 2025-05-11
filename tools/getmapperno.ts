@@ -16,10 +16,11 @@ function getMapperNo(romData: Uint8Array): number {
 
 async function dumpMapper(fn: string): Promise<void> {
   switch (path.extname(fn).toLowerCase()) {
-  case '.nes':
+  case '.nes': {
     const buffer = await fs.readFile(fn) as Buffer
     console.log(`"${path.basename(fn)}"\tmapper=${getMapperNo(buffer)}`)
     return
+  }
   case '.zip':
     {
       const buffer = await fs.readFile(fn)
@@ -29,7 +30,7 @@ async function dumpMapper(fn: string): Promise<void> {
         }
       }
       const loadedZip = await util.promisify<Uint8Array, AsyncUnzipOptions, Unzipped>(unzip)(buffer, options)
-      for (let fileName of Object.keys(loadedZip)) {
+      for (const fileName of Object.keys(loadedZip)) {
         const unzipped = loadedZip[fileName]
         console.log(`"${path.basename(fn)}"\tmapper=${getMapperNo(unzipped)}`)
         return

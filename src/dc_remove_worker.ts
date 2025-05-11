@@ -5,18 +5,21 @@ class DcRemoveProcessor extends AudioWorkletProcessor {
   constructor() {
     super()
 
-    this.port.onmessage = (ev) => {
+    this.port.onmessage = ev => {
       switch (ev.data.action) {
-      case 'stop':
-        this.stopped = true
-        break
+        case 'stop':
+          this.stopped = true
+          break
       }
     }
   }
 
-  public process(inputs: Float32Array[][], outputs: Float32Array[][], _parameters: Record<string, Float32Array>): boolean {
-    if (this.stopped)
-      return false
+  public process(
+    inputs: Float32Array[][],
+    outputs: Float32Array[][],
+    _parameters: Record<string, Float32Array>,
+  ): boolean {
+    if (this.stopped) return false
 
     const output = outputs[0]
     const numberOfChannels = output.length
@@ -39,8 +42,7 @@ class DcRemoveProcessor extends AudioWorkletProcessor {
       this.dc[channel] = dc
 
       const outCh = output[channel]
-      for (let i = 0, len = inCh.length; i < len; ++i)
-        outCh[i] = inCh[i] - dc
+      for (let i = 0, len = inCh.length; i < len; ++i) outCh[i] = inCh[i] - dc
     }
 
     return true

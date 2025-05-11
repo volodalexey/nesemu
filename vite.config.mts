@@ -1,7 +1,7 @@
-import { resolve } from 'node:path'
-import { defineConfig } from 'vite'
+import {resolve} from 'node:path'
+import {defineConfig} from 'vite'
 import htmlMinifier from 'vite-plugin-html-minifier'
-import { minify } from 'html-minifier'
+import {minify} from 'html-minifier'
 
 const htmlComponentFile = /\.html\?inline$/ // can have a prefix to html file names such as /\.component\.html\?inline$/
 
@@ -24,13 +24,14 @@ const minifyHTMLConfig = {
 function htmlMinify() {
   return {
     name: 'html-minify',
-    transform(src: string, id: string): any {
+    transform(src: string, id: string) {
       if (htmlComponentFile.test(id)) {
         return {
           code: `export default \`${minify(src, minifyHTMLConfig)}\``,
           map: null,
         }
       }
+      return undefined
     },
   }
 }
@@ -61,6 +62,6 @@ export default defineConfig({
     htmlMinifier({
       minify: true,
     }),
-    htmlMinify(),  // Used for importing 'about.html?inline'
+    htmlMinify(), // Used for importing 'about.html?inline'
   ],
 })

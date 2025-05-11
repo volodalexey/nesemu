@@ -1,10 +1,14 @@
-$BG_COLOR: #ddd;
+:root {
+  --bg_color: #ddd;
+  --start_menu_bar_height: 30px;
+  --button_highlight: #fff;
+  --button_shadow: #888;
+  --resizable_radius: 4px;
+  --button_height: 6px;
+}
 
-$START_MENU_BAR_HEIGHT: 30px;
-$BUTTON_HIGHLIGHT: #fff;
-$BUTTON_SHADOW: #888;
-
-html, body {
+html,
+body {
   width: 100%;
   height: 100%;
   margin: 0;
@@ -12,13 +16,8 @@ html, body {
 }
 
 body {
-  background-color: $BG_COLOR;
-
-  // Disable selection.
-  user-select: none;  // CSS3
-  -moz-user-select: none;  // Firefox
-  -webkit-user-select: none;  // Safari、Chrome
-  -ms-user-select: none;  // IE10, or higher
+  background-color: var(--bg_color);
+  user-select: none;
 }
 
 .full-size {
@@ -31,33 +30,27 @@ body {
 }
 
 .fixed-font {
-  font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace;
 }
 
 .flex-center {
-  display: -webkit-flex;
   display: flex;
-  -webkit-align-items: center;
   align-items: center;
-  -webkit-justify-content: center;
   justify-content: center;
 }
 
 .reg {
   text-align: right;
-  font-family:monospace;
+  font-family: monospace;
   font-size: 14px;
 }
 
 .pixelated {
-  -ms-interpolation-mode: nearest-neighbor;   /* IE */
-  image-rendering: -webkit-crisp-edges;       /* Safari */
-  image-rendering: -moz-crisp-edges;          /* Firefox */
   image-rendering: pixelated;
 }
 
 .clearfix:after {
-  content: " ";
+  content: ' ';
   display: table;
   clear: both;
 }
@@ -74,15 +67,16 @@ body {
   position: absolute;
   width: 100%;
   top: 0;
-  bottom: $START_MENU_BAR_HEIGHT;
+  bottom: var(--start_menu_bar_height);
   overflow: hidden;
 }
 
 .no-outline {
   outline: none;
-  :focus {
-    outline: none;
-  }
+}
+
+.no-outline:focus {
+  outline: none;
 }
 
 hr {
@@ -96,37 +90,38 @@ hr {
   position: absolute;
   display: inline-block;
   box-sizing: content-box;
-  box-shadow: 0 4px 8px rgba(0,0,0,.7);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(4px);
 
   border-radius: 0 0 4px 4px;
   padding: 2px 0 4px;
-  &.bottom {
-    border-radius: 4px 4px 0 0;
-    padding: 4px 0 2px;
+}
+
+.menu-subitem-holder.bottom {
+  border-radius: 4px 4px 0 0;
+  padding: 4px 0 2px;
+}
+
+.submenu-row {
+  position: relative;
+
+  &:hover {
+    color: white;
   }
 
-  .submenu-row {
-    position: relative;
+  .submenu-check {
+    position: absolute;
+    left: 0;
+    top: 0;
 
-    &:hover {
-      color: white;
+    &:after {
+      content: '✓';
     }
+  }
 
-    .submenu-check {
-      position: absolute;
-      left: 0;
-      top: 0;
-
-      &:after {
-        content: '✓';
-      }
-    }
-
-    .submenu-splitter {
-      border-top: 1px solid #aaa;
-      border-bottom: 1px solid #ddd;
-    }
+  .submenu-splitter {
+    border-top: 1px solid #aaa;
+    border-bottom: 1px solid #ddd;
   }
 }
 
@@ -156,11 +151,11 @@ hr {
 
 .start-menu-bar {
   position: absolute;
-  height: $START_MENU_BAR_HEIGHT;
+  height: var(--start_menu_bar_height);
   width: 100%;
   left: 0;
   bottom: 0;
-  overflow:hidden;
+  overflow: hidden;
   background-color: #ccc;
   border-top: 2px solid #eee;
   box-sizing: border-box;
@@ -180,25 +175,26 @@ hr {
     }
 
     &.opened {
-      border-top: 2px solid $BUTTON_SHADOW;
-      border-left: 2px solid $BUTTON_SHADOW;
-      border-right: 2px solid $BUTTON_HIGHLIGHT;
-      border-bottom: 2px solid $BUTTON_HIGHLIGHT;
+      border-top: 2px solid var(--button_shadow);
+      border-left: 2px solid var(--button_shadow);
+      border-right: 2px solid var(--button_highlight);
+      border-bottom: 2px solid var(--button_highlight);
     }
   }
+
   &.selected > .start-menu-item:hover {
     color: white;
     background-color: #22f;
   }
 }
 
-
 .start-menu.menu-subitem-holder {
   @supports (backdrop-filter: none) {
-    background-color: rgba(255,255,255,0.8);
+    background-color: rgba(255, 255, 255, 0.8);
   }
+
   @supports not (backdrop-filter: none) {
-    background-color: rgb(255,255,255);
+    background-color: rgb(255, 255, 255);
   }
 }
 
@@ -237,12 +233,15 @@ hr {
 
       .btn.close {
         background-color: #f44;
+
         &:hover {
           background-color: #f88;
         }
       }
+
       .btn.maximize {
         background-color: #3d3;
+
         &:hover {
           background-color: #6e6;
         }
@@ -252,8 +251,6 @@ hr {
     .title {
       position: relative;
       display: table-cell;
-      //left: 0;
-      //right: 0;
       height: 100%;
       color: #444;
       font-size: 12px;
@@ -283,32 +280,38 @@ hr {
 
   .menu-subitem-holder {
     font-size: 10px;
+
     @supports (backdrop-filter: none) {
-      background-color: rgba(204,204,204,0.8);
+      background-color: rgba(204, 204, 204, 0.8);
     }
+
     @supports not (backdrop-filter: none) {
-      background-color: rgb(204,204,204);
+      background-color: rgb(204, 204, 204);
     }
   }
 }
+
 .wnd.top {
-  box-shadow: 0px 0px 20px rgba(0, 0, 0, .8);
+  box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.8);
 
   .title-bar {
     background: linear-gradient(#eee, #aaa);
+
     .title {
       color: black;
     }
   }
 }
-$RESIZABLE_RADIUS: 4px;
+
 .wnd.resizable {
-  border-radius: $RESIZABLE_RADIUS;
+  border-radius: var(--resizable_radius);
+
   .title-bar {
-    border-radius: $RESIZABLE_RADIUS $RESIZABLE_RADIUS 0 0;
+    border-radius: var(--resizable_radius) var(--resizable_radius) 0 0;
   }
+
   .content-holder {
-    border-radius:0 0 $RESIZABLE_RADIUS $RESIZABLE_RADIUS;
+    border-radius: 0 0 var(--resizable_radius) var(--resizable_radius);
   }
 }
 
@@ -323,37 +326,46 @@ $RESIZABLE_RADIUS: 4px;
 
 .gamepad-content {
   position: relative;
-  border: 5px solid #8C001E;
-  background-color: #E0C684;
+  border: 5px solid #8c001e;
+  background-color: #e0c684;
   box-sizing: border-box;
 }
-
-$BUTTON_HEIGHT: 6px;
 
 .gamepad-btn {
   position: absolute;
   background-color: #222;
   color: white;
   outline: none;
-  box-shadow: 0 $BUTTON_HEIGHT 0 #666;
+  box-shadow: 0 var(--button_height) 0 #666;
   border-radius: 5px;
   text-align: center;
   cursor: pointer;
 }
+
 @keyframes gamepad-btn-selected {
-  0% {border: 2px solid rgba(0,204,0,1);}
-  50% {border: 2px solid rgba(0,204,0,0);}
-  100% {border: 2px solid rgba(0,204,0,1);}
+  0% {
+    border: 2px solid rgba(0, 204, 0, 1);
+  }
+
+  50% {
+    border: 2px solid rgba(0, 204, 0, 0);
+  }
+
+  100% {
+    border: 2px solid rgba(0, 204, 0, 1);
+  }
 }
+
 .gamepad-btn.selected {
-  border: 2px solid rgb(0,204,0);
+  border: 2px solid rgb(0, 204, 0);
   margin-top: -2px;
   margin-left: -2px;
   animation: gamepad-btn-selected 0.5s ease infinite;
 }
+
 .gamepad-btn.pressed {
   box-shadow: none;
-  margin-top: $BUTTON_HEIGHT;
+  margin-top: var(--button_height);
   background-color: #3e3;
   color: #338;
 }
@@ -373,7 +385,7 @@ $BUTTON_HEIGHT: 6px;
   text-align: center;
   line-height: 32px;
   color: #eee;
-  font-size: .8em;
+  font-size: 0.8em;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
@@ -401,7 +413,7 @@ $BUTTON_HEIGHT: 6px;
 .volume-slider-container {
   position: absolute;
   background-color: black;
-  border:3px solid  black;
+  border: 3px solid black;
   box-sizing: border-box;
   cursor: pointer;
 }
@@ -474,7 +486,8 @@ $BUTTON_HEIGHT: 6px;
   color: white;
   overflow: hidden;
 
-  div::selection, span::selection {
+  div::selection,
+  span::selection {
     background-color: #0c0;
     color: black;
   }

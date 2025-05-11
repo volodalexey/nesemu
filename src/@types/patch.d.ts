@@ -1,9 +1,6 @@
 // Patches for type declarations.
 
 interface Window {
-  mozRequestAnimationFrame: any
-  msRequestAnimationFrame: any
-
   webkitAudioContext: any
 
   showOpenFilePicker(option?: any): Promise<[FileSystemFileHandle]>

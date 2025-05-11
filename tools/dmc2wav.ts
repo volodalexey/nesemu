@@ -98,9 +98,10 @@ async function dmc2wav(romData: Uint8Array, opts: Array<DmcParam>, sampleRate: n
 
 async function loadNesRomData(romFileName: string): Promise<Uint8Array> {
   switch (path.extname(romFileName).toLowerCase()) {
-  case '.nes':
+  case '.nes': {
     const buffer = await fs.readFile(romFileName) as Buffer
     return new Uint8Array(buffer)
+  }
   case '.zip':
     {
       const buffer = await fs.readFile(romFileName)
@@ -110,7 +111,7 @@ async function loadNesRomData(romFileName: string): Promise<Uint8Array> {
         }
       }
       const loadedZip = await util.promisify<Uint8Array, AsyncUnzipOptions, Unzipped>(unzip)(buffer, options)
-      for (let fileName of Object.keys(loadedZip)) {
+      for (const fileName of Object.keys(loadedZip)) {
         const unzipped = loadedZip[fileName]
         return unzipped
       }

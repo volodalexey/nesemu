@@ -4,6 +4,9 @@
 
 /gh-pages/
 
+# IDE
+.vscode/
+
 # Node
 node_modules
 npm-debug.log

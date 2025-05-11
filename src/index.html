@@ -1,31 +1,34 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>NES Emulator</title>
-    <link rel="stylesheet" href="default.scss">
-    <link rel="canonical" href="https://tyfkda.github.io/nesemu/">
-    <link rel="prefetch" href="assets/noise_channel_worker.js" as="worker">
-    <link rel="prefetch" href="assets/dmc_channel_worker.js" as="worker">
-    <link rel="prefetch" href="assets/dc_remove_worker.js" as="worker">
-  </head>
 
-  <body style="overflow:hidden">
-    <div class="flex-center full-size" style="position:absolute">
-      <div id="drop-desc"
-           style="font-size:3em; color:#aaa; text-shadow:-2px -2px 2px #666;
-                  transition: opacity 5s ease 15s"
-      ><noscript>Please enable JavaScript</noscript></div>
-    </div>
-    <div id="root" class="full-size" style="position:absolute; overflow:hidden">
-      <div id="start-menu-bar" class="start-menu-bar"></div>
-      <div id="nesroot" class="nesroot no-outline" tabindex="0">
-        <div class="audio-toggle-container" title="Toggle audio" style="left:0; top:0;"><button id="audio-toggle"><img id="audio-toggle-icon" class="icon pixelated" width="32" height="32" style="visibility:hidden"></button></div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NES Emulator</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="canonical" href="https://tyfkda.github.io/nesemu/">
+  <link rel="prefetch" href="./assets/noise_channel_worker.js" as="worker">
+  <link rel="prefetch" href="./assets/dmc_channel_worker.js" as="worker">
+  <link rel="prefetch" href="./assets/dc_remove_worker.js" as="worker">
+</head>
+
+<body style="overflow:hidden">
+  <div class="flex-center full-size" style="position:absolute">
+    <label id="drop-desc" style="font-size:3em; color:#aaa; text-shadow:-2px -2px 2px #666;">
+      <noscript>Please enable JavaScript</noscript>
+    </label>
+  </div>
+  <div id="root" class="full-size" style="position:absolute; overflow:hidden">
+    <div id="start-menu-bar" class="start-menu-bar"></div>
+    <div id="nesroot" class="nesroot no-outline" tabindex="0">
+      <div class="audio-toggle-container" title="Toggle audio" style="left:0; top:0;"><button id="audio-toggle"><img
+            id="audio-toggle-icon" class="icon pixelated" width="32" height="32" style="visibility:hidden"></button>
       </div>
     </div>
+  </div>
 
-    <!-- <script src="assets/lib.js" type="text/javascript" defer></script> -->
-    <script src="main.ts" type="module"></script>
-  </body>
+  <!-- <script src="./assets/lib.js" type="text/javascript" defer></script> -->
+  <script src="main.ts" type="module"></script>
+</body>
+
 </html>
