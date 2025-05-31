@@ -11,7 +11,10 @@ export class SpDmcChannel extends IDmcChannel {
 
   private sampler: DeltaModulationSampler
 
-  public constructor(private context: AudioContext, private destination: AudioNode) {
+  public constructor(
+    private context: AudioContext,
+    private destination: AudioNode,
+  ) {
     super()
 
     this.sampler = new DeltaModulationSampler(context.sampleRate)
@@ -29,6 +32,7 @@ export class SpDmcChannel extends IDmcChannel {
   }
 
   public start(): void {
+    //
   }
 
   public setEnable(enable: boolean): void {
@@ -54,7 +58,7 @@ export class SpDmcChannel extends IDmcChannel {
 
   private createNode(context: AudioContext, destination: AudioNode): ScriptProcessorNode {
     const node = context.createScriptProcessor(SP_DMC_BUFFER_SIZE, 0, 1)
-    node.onaudioprocess = (e) => {
+    node.onaudioprocess = e => {
       const output = e.outputBuffer.getChannelData(0)
       this.sampler.fillBuffer(output)
     }

@@ -8,7 +8,7 @@ const WIN_BORDER = 1
 
 export class Wnd {
   public static TITLEBAR_HEIGHT = 20
-  public static MENUBAR_HEIGHT = 14
+  public static MENUBAR_HEIGHT = 16
 
   protected contentHolder: HTMLElement
   private root: HTMLElement
@@ -19,9 +19,12 @@ export class Wnd {
   private clientMarginWidth = 0
   private clientMarginHeight = 0
 
-  public constructor(protected wndMgr: WindowManager, width: number, height: number,
-                     title: string)
-  {
+  public constructor(
+    protected wndMgr: WindowManager,
+    width: number,
+    height: number,
+    title: string,
+  ) {
     this.root = this.createRoot()
     this.root.className = 'wnd'
     this.root.style.position = 'absolute'
@@ -80,20 +83,17 @@ export class Wnd {
 
     const left = Util.clamp(rect.left, 0, Math.floor(rootRect.width - width - WIN_BORDER * 2))
     const top = Util.clamp(rect.top, 0, Math.floor(rootRect.height - height - WIN_BORDER * 2))
-    if (left !== rect.left)
-      styles['left'] = `${left}px`;
-    if (top !== rect.top)
-      styles['top'] = `${top}px`;
+    if (left !== rect.left) styles['left'] = `${left}px`
+    if (top !== rect.top) styles['top'] = `${top}px`
 
     DomUtil.setStyles(this.root, styles)
   }
 
   public setClientSize(width: number, height: number): void {
-    this.setWindowSize(width + this.clientMarginWidth,
-                       height + this.clientMarginHeight)
+    this.setWindowSize(width + this.clientMarginWidth, height + this.clientMarginHeight)
   }
 
-  public getClientSize(): {width: number, height: number} {
+  public getClientSize(): {width: number; height: number} {
     const rect = this.root.getBoundingClientRect()
     return {
       width: rect.width - this.clientMarginWidth,
@@ -107,10 +107,8 @@ export class Wnd {
     const top = Util.clamp(rect.top, 0, Math.floor(rootRect.height - rect.height))
     if (left !== rect.left || top !== rect.top) {
       const styles: Record<string, unknown> = {}
-      if (left !== rect.left)
-        styles['left'] = `${left}px`;
-      if (top !== rect.top)
-        styles['top'] = `${top}px`;
+      if (left !== rect.left) styles['left'] = `${left}px`
+      if (top !== rect.top) styles['top'] = `${top}px`
       DomUtil.setStyles(this.root, styles)
     }
   }
@@ -121,17 +119,17 @@ export class Wnd {
     return {width, height}
   }
 
-  public onEvent(_event: WndEvent, _param?: any): any {}
+  public onEvent(_event: WndEvent, _param?: unknown): boolean {
+    return true
+  }
 
   public isTop(): boolean {
     return this.wndMgr.isTop(this)
   }
 
   public setTop(value: boolean): void {
-    if (value)
-      this.root.classList.add('top')
-    else
-      this.root.classList.remove('top')
+    if (value) this.root.classList.add('top')
+    else this.root.classList.remove('top')
   }
 
   public addMenuBar(menu: Array<MenuItemInfo>): void {
@@ -160,11 +158,9 @@ export class Wnd {
 
     const showSubmenu = (index: number) => {
       const menuItem = menu[index]
-      if (!('submenu' in menuItem) || activeSubmenuIndex === index)
-        return
+      if (!('submenu' in menuItem) || activeSubmenuIndex === index) return
 
-      if (closeSubmenu != null)
-        closeSubmenu()
+      if (closeSubmenu != null) closeSubmenu()
 
       if (activeSubmenuIndex >= 0) {
         const prev = itemElems[activeSubmenuIndex]
@@ -175,15 +171,14 @@ export class Wnd {
 
       const rect = WndUtil.getOffsetRect(this.root, itemElem)
       const pos = {
-        left: `${rect.left - 1}px`,  // For border size
+        left: `${rect.left - 1}px`, // For border size
         top: `${rect.bottom - 1}px`,
       }
       const option = {
         className: 'menu-subitem-holder',
         onClose,
       }
-      closeSubmenu = WndUtil.openSubmenu(
-        menuItem.submenu, pos, this.root, option)
+      closeSubmenu = WndUtil.openSubmenu(menuItem.submenu, pos, this.root, option)
       itemElem.classList.add('opened')
     }
 
@@ -193,8 +188,7 @@ export class Wnd {
           this.onEvent(WndEvent.OPEN_MENU)
           showSubmenu(index)
         } else {
-          if (closeSubmenu)
-            closeSubmenu()
+          if (closeSubmenu) closeSubmenu()
           onClose()
         }
       }
@@ -214,24 +208,25 @@ export class Wnd {
           showSubmenu(index)
         }
       })
-      itemElem.addEventListener('touchstart', event => {
-        if (event.changedTouches[0].identifier === 0) {
-          event.preventDefault()
-          itemElem.classList.add('opened')
-        }
-      }, {passive: false})
+      itemElem.addEventListener(
+        'touchstart',
+        event => {
+          if (event.changedTouches[0].identifier === 0) {
+            event.preventDefault()
+            itemElem.classList.add('opened')
+          }
+        },
+        {passive: false},
+      )
       itemElem.addEventListener('touchend', event => {
         if (event.changedTouches[0].identifier === 0) {
           const [x, y] = DomUtil.getMousePosIn(event, itemElem)
           const rect = itemElem.getBoundingClientRect()
           if (x >= 0 && y >= 0 && x < rect.width && y < rect.height) {
-            if (activeSubmenuIndex < 0 || activeSubmenuIndex === index)
-              onClickMenu(menuItem, index)
-            else
-              showSubmenu(index)
+            if (activeSubmenuIndex < 0 || activeSubmenuIndex === index) onClickMenu(menuItem, index)
+            else showSubmenu(index)
           } else {
-            if (activeSubmenuIndex !== index)
-              itemElem.classList.remove('opened')
+            if (activeSubmenuIndex !== index) itemElem.classList.remove('opened')
           }
         }
       })
@@ -249,8 +244,7 @@ export class Wnd {
   }
 
   public close(): void {
-    if (this.onEvent(WndEvent.CLOSE) === false)
-      return  // Cancel close
+    if (this.onEvent(WndEvent.CLOSE) === false) return // Cancel close
     this.wndMgr.remove(this)
     // this.root = null
   }
@@ -268,23 +262,25 @@ export class Wnd {
       () => this.wndMgr.getRootClientRect(),
       (event, param?) => {
         switch (event) {
-        case WndEvent.RESIZE_BEGIN:
-          this.wndMgr.moveToTop(this)
-          this.root.style.transitionProperty = 'none'  // To change size immediately.
-          break
-        case WndEvent.RESIZE_END:
-          this.root.style.transitionProperty = ''
-          break
+          case WndEvent.RESIZE_BEGIN:
+            this.wndMgr.moveToTop(this)
+            this.root.style.transitionProperty = 'none' // To change size immediately.
+            break
+          case WndEvent.RESIZE_END:
+            this.root.style.transitionProperty = ''
+            break
         }
         this.onEvent(event, param)
-      }, opt)
+      },
+      opt,
+    )
   }
 
   protected maximize(): void {
     this.setPos(0, 0)
     const menubarHeight = this.menuBar != null ? Wnd.MENUBAR_HEIGHT : 0
     const rootRect = this.wndMgr.getRootClientRect()
-    const width = rootRect.width - 2  // -2 for border size
+    const width = rootRect.width - 2 // -2 for border size
     const height = rootRect.height - (Wnd.TITLEBAR_HEIGHT + menubarHeight) - 2
     this.setClientSize(width, height)
   }
@@ -301,7 +297,11 @@ export class Wnd {
     return root
   }
 
-  private createTitleBar(title: string): {titleBar: HTMLElement, titleBtnHolder: HTMLElement, titleElem: HTMLElement} {
+  private createTitleBar(title: string): {
+    titleBar: HTMLElement
+    titleBtnHolder: HTMLElement
+    titleElem: HTMLElement
+  } {
     const titleBar = document.createElement('div')
     titleBar.className = 'title-bar'
 
@@ -316,29 +316,33 @@ export class Wnd {
     })
 
     WndUtil.makeDraggable(
-      this.root, titleBar,
+      this.root,
+      titleBar,
       () => {
         const rc = this.wndMgr.getRootClientRect()
         return new DOMRect(rc.x, rc.y, rc.width - WIN_BORDER * 2, rc.height - WIN_BORDER * 2)
       },
       (event, param?) => {
         switch (event) {
-        case WndEvent.DRAG_BEGIN:
-          this.root.style.transitionProperty = 'none'  // To change position immediately.
-          this.wndMgr.moveToTop(this)
-          break
-        case WndEvent.DRAG_END:
-          this.root.style.transitionProperty = ''
-          break
+          case WndEvent.DRAG_BEGIN:
+            this.root.style.transitionProperty = 'none' // To change position immediately.
+            this.wndMgr.moveToTop(this)
+            break
+          case WndEvent.DRAG_END:
+            this.root.style.transitionProperty = ''
+            break
         }
         this.onEvent(event, param)
-      })
+      },
+    )
     return {titleBar, titleBtnHolder, titleElem}
   }
 
-  private addTitleButton(parent: HTMLElement, className: string,
-                         clickCallback: EventListener): HTMLElement
-  {
+  private addTitleButton(
+    parent: HTMLElement,
+    className: string,
+    clickCallback: EventListener,
+  ): HTMLElement {
     const button = document.createElement('div')
     button.className = `${className} btn`
     button.title = className
@@ -347,9 +351,13 @@ export class Wnd {
       event.preventDefault()
       event.stopPropagation()
     })
-    button.addEventListener('touchstart', event => {
-      event.stopPropagation()
-    }, {passive: true})
+    button.addEventListener(
+      'touchstart',
+      event => {
+        event.stopPropagation()
+      },
+      {passive: true},
+    )
     parent.appendChild(button)
     return button
   }

@@ -23,11 +23,12 @@ export class Bus implements IBus {
         console.error(`Illegal read at ${Util.hex(adr, 4)}`)
         this.readErrorReported = true
       }
-      return 0xbf  // Returns dummy value (undefined opcode, non plausible value).
+      return 0xbf // Returns dummy value (undefined opcode, non plausible value).
     })
     this.writerTable.fill((adr, value) => {
       if (!this.writeErrorReported) {
-        const sadr = Util.hex(adr, 4), sv = Util.hex(value, 2)
+        const sadr = Util.hex(adr, 4),
+          sv = Util.hex(value, 2)
         console.error(`Illegal write at ${sadr}, ${sv}`)
         this.writeErrorReported = true
       }
@@ -39,8 +40,7 @@ export class Bus implements IBus {
     end |= 0
     const startBlock = (start / BLOCK_SIZE) | 0
     const endBlock = (end / BLOCK_SIZE) | 0
-    for (let i = startBlock; i <= endBlock; ++i)
-      this.readerTable[i] = reader
+    for (let i = startBlock; i <= endBlock; ++i) this.readerTable[i] = reader
   }
 
   public setWriteMemory(start: Address, end: Address, writer: Writer): void {
@@ -48,8 +48,7 @@ export class Bus implements IBus {
     end |= 0
     const startBlock = (start / BLOCK_SIZE) | 0
     const endBlock = (end / BLOCK_SIZE) | 0
-    for (let i = startBlock; i <= endBlock; ++i)
-      this.writerTable[i] = writer
+    for (let i = startBlock; i <= endBlock; ++i) this.writerTable[i] = writer
   }
 
   public read8(adr: Address): Byte {
@@ -73,7 +72,10 @@ export class Bus implements IBus {
     }
 
     for (let i = 0; i < count; i += 16) {
-      const line = mem.splice(0, 16).map(x => Util.hex(x, 2)).join(' ')
+      const line = mem
+        .splice(0, 16)
+        .map(x => Util.hex(x, 2))
+        .join(' ')
       console.log(`${Util.hex(start + i, 4)}: ${line}`)
     }
   }

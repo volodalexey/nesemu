@@ -16,6 +16,6 @@
 //   update(): void;
 // }
 
-declare module "stats-js" {
-  export = any;  //Stats;
+declare module 'stats-js' {
+  export = any //Stats;
 }

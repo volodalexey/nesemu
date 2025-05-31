@@ -18,7 +18,8 @@ type SettingData = {
 }
 
 function modified(s1: SettingData, s2: SettingData): boolean {
-  return s1.pauseOnMenu !== s2.pauseOnMenu ||
+  return (
+    s1.pauseOnMenu !== s2.pauseOnMenu ||
     s1.muteOnInactive !== s2.muteOnInactive ||
     s1.volume !== s2.volume ||
     s1.scaler !== s2.scaler ||
@@ -28,11 +29,12 @@ function modified(s1: SettingData, s2: SettingData): boolean {
     s1.clientWidth !== s2.clientWidth ||
     s1.clientHeight !== s2.clientHeight ||
     s1.emulationSpeed !== s2.emulationSpeed
+  )
 }
 
 export const GlobalSetting = {
   pauseOnMenu: false,
-  muteOnInactive: true,
+  muteOnInactive: false,
   volume: 0.5,
   scaler: ScalerType.NEAREST as ScalerType,
   overscan: true,
@@ -40,7 +42,15 @@ export const GlobalSetting = {
   maximize: false,
   clientWidth: (256 - 4 * 2) * 2,
   clientHeight: (240 - 8 * 2) * 2,
-  emulationSpeed: 1.0,
+  _emulationSpeed: 1.0,
+
+  get emulationSpeed() {
+    return this._emulationSpeed
+  },
+
+  set emulationSpeed(value: number) {
+    this._emulationSpeed = value
+  },
 
   savedSetting: {} as SettingData,
 
@@ -49,8 +59,7 @@ export const GlobalSetting = {
   },
 
   destroy() {
-    if (modified(this, this.savedSetting))
-      this._saveToStorage()
+    if (modified(this, this.savedSetting)) this._saveToStorage()
   },
 
   _loadFromStorage() {
@@ -58,14 +67,17 @@ export const GlobalSetting = {
     if (setting != null) {
       this.pauseOnMenu = setting.pauseOnMenu === true
       this.muteOnInactive = setting.muteOnInactive === true
-      this.volume = typeof(setting.volume) === 'number' ? Util.clamp(setting.volume, 0.0, 1.0) : this.volume
-      this.scaler = Object.values(ScalerType).indexOf(setting.scaler) >= 0 ? setting.scaler : ScalerType.NEAREST
+      this.volume =
+        typeof setting.volume === 'number' ? Util.clamp(setting.volume, 0.0, 1.0) : this.volume
+      this.scaler =
+        Object.values(ScalerType).indexOf(setting.scaler) >= 0 ? setting.scaler : ScalerType.NEAREST
       this.overscan = setting.overscan != null ? setting.overscan : true
       this.spriteFlicker = setting.spriteFlicker != null ? setting.spriteFlicker : false
       this.maximize = setting.maximize != null ? setting.maximize : false
       this.clientWidth = setting.clientWidth != null ? setting.clientWidth : this.clientWidth
       this.clientHeight = setting.clientHeight != null ? setting.clientHeight : this.clientHeight
-      this.emulationSpeed = setting.emulationSpeed != null ? setting.emulationSpeed : this.emulationSpeed
+      this.emulationSpeed =
+        setting.emulationSpeed != null ? setting.emulationSpeed : this.emulationSpeed
 
       this.savedSetting = setting
     } else {

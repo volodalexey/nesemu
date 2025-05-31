@@ -33,17 +33,13 @@ export class Mapper073 extends Mapper {
 
     // IRQ Latch 0, 1
     this.options.setWriteMemory(0x8000, 0x9fff, (adr, value) => {
-      if (adr < 0x9000)
-        this.irqValue = (this.irqValue & 0xfff0) | (value & 0x0f)
-      else
-        this.irqValue = (this.irqValue & 0xff0f) | ((value & 0x0f) << 4)
+      if (adr < 0x9000) this.irqValue = (this.irqValue & 0xfff0) | (value & 0x0f)
+      else this.irqValue = (this.irqValue & 0xff0f) | ((value & 0x0f) << 4)
     })
     // IRQ Latch 2, 3
     this.options.setWriteMemory(0xa000, 0xbfff, (adr, value) => {
-      if (adr < 0xb000)
-        this.irqValue = (this.irqValue & 0xf0ff) | ((value & 0x0f) << 8)
-      else
-        this.irqValue = (this.irqValue & 0x0fff) | ((value & 0x0f) << 12)
+      if (adr < 0xb000) this.irqValue = (this.irqValue & 0xf0ff) | ((value & 0x0f) << 8)
+      else this.irqValue = (this.irqValue & 0x0fff) | ((value & 0x0f) << 12)
     })
 
     this.options.setWriteMemory(0xc000, 0xdfff, (adr, value) => {
@@ -83,7 +79,7 @@ export class Mapper073 extends Mapper {
 
   public onHblank(_hcount: number): void {
     if (this.irqEnable && this.irqCounter > 0) {
-      this.irqCounter -= 185  // TODO: Calculate.
+      this.irqCounter -= 185 // TODO: Calculate.
       if (this.irqCounter < 0) {
         this.irqCounter = 0
         this.options.requestIrq(IrqType.EXTERNAL)

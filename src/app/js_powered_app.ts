@@ -2,7 +2,7 @@
 // Run JavaScript code, instead of 6502 CPU.
 
 import {App, Option} from './app'
-import {AppEvent} from './app_event'
+import {AppEventType} from './app_event'
 import {AudioManager} from '../util/audio_manager'
 import {DomUtil} from '../util/dom_util'
 import {Nes} from '../nes/nes'
@@ -13,7 +13,7 @@ import {Address, Byte} from '../nes/types'
 const MAX_FRAME_COUNT = 4
 
 interface Accessor {
-  getRam(): Uint8Array  // Size=0x0800
+  getRam(): Uint8Array // Size=0x0800
   read8(adr: Address): Byte
   write8(adr: Address, value: Byte): void
   setReadMemory(start: Address, end: Address, reader: Function): void
@@ -36,15 +36,14 @@ export class JsNes extends Nes {
 
   public constructor() {
     super({
-      nmiFn: () => {},  // Dummy NMI
-      apuIrqFn: () => {},  // Dummy APU IRQ
+      nmiFn: () => {}, // Dummy NMI
+      apuIrqFn: () => {}, // Dummy APU IRQ
     })
     this.reset()
   }
 
   public async setFile(file: File): Promise<void> {
-    if (file == null)
-      return Promise.reject('null')
+    if (file == null) return Promise.reject('null')
     this.file = file
 
     this.setMemoryMap()
@@ -58,13 +57,11 @@ export class JsNes extends Nes {
     const jsCodeFn = `'use strict'; return (() => { ${jsCode} })()`
     this.jsCpu = Function('window', 'alert', jsCodeFn)()
     let chrRom = this.jsCpu.getChrRom()
-    if (chrRom != null && (chrRom as any).then != null)
-      chrRom = await chrRom
+    if (chrRom != null && (chrRom as any).then != null) chrRom = await chrRom
     this.ppu.setChrData(chrRom as Uint8Array)
 
     const mapperNo = this.jsCpu.getMapperNo != null ? this.jsCpu.getMapperNo() : 0
-    if (!Nes.isMapperSupported(mapperNo))
-      return Promise.reject(`Mapper ${mapperNo} not supported`)
+    if (!Nes.isMapperSupported(mapperNo)) return Promise.reject(`Mapper ${mapperNo} not supported`)
     this.mapper = this.createMapper(mapperNo, null)
 
     this.jsCpu.init({
@@ -87,19 +84,16 @@ export class JsNes extends Nes {
     this.ram.fill(0xff)
     this.ppu.reset()
     this.apu.reset()
-    if (this.jsCpu != null)
-      this.jsCpu.reset()
+    if (this.jsCpu != null) this.jsCpu.reset()
   }
 
   public update(): void {
     this.hcount = VBlank.END
-    if (this.jsCpu != null)
-      this.jsCpu.update()
+    if (this.jsCpu != null) this.jsCpu.update()
   }
 
   private waitHline(hcount: number) {
-    if (hcount > VBlank.START || (this.hcount <= VBlank.START && hcount >= this.hcount))
-      return
+    if (hcount > VBlank.START || (this.hcount <= VBlank.START && hcount >= this.hcount)) return
 
     if (this.hcount >= VBlank.END) {
       while (this.hcount < VBlank.VRETURN) {
@@ -116,7 +110,11 @@ export class JsNes extends Nes {
 export class JsApp extends App {
   private leftTime = 0
 
-  constructor(wndMgr: WindowManager, option: Option, private jsNes: JsNes) {
+  constructor(
+    wndMgr: WindowManager,
+    option: Option,
+    private jsNes: JsNes,
+  ) {
     super(wndMgr, option, jsNes, true)
   }
 
@@ -126,13 +124,13 @@ export class JsApp extends App {
     this.setupAudioManager()
   }
 
-  protected handleAppEvent(type: AppEvent.Type, param?: any): void {
+  protected handleAppEvent(type: AppEventType, param?: any): void {
     switch (type) {
-    case AppEvent.Type.RESET:
-      this.jsNes.reset()
-      break
-    default:
-      return super.handleAppEvent(type, param)
+      case AppEventType.RESET:
+        this.jsNes.reset()
+        break
+      default:
+        return super.handleAppEvent(type, param)
     }
   }
 
@@ -143,9 +141,9 @@ export class JsApp extends App {
     }
 
     const et = elapsedTime + this.leftTime
-    let frameCount = (et * 60 / 1000) | 0
+    let frameCount = ((et * 60) / 1000) | 0
     if (frameCount <= MAX_FRAME_COUNT) {
-      this.leftTime = et - ((frameCount * 1000 / 60) | 0)
+      this.leftTime = et - (((frameCount * 1000) / 60) | 0)
     } else {
       frameCount = MAX_FRAME_COUNT
       this.leftTime = 0

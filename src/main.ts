@@ -360,17 +360,13 @@ class Main {
   }
 
   private setUpBlur(): void {
-    window.addEventListener('blur', () => {
-      if (GlobalSetting.muteOnInactive) this.onFocusChanged(false)
-    })
-    window.addEventListener('focus', () => {
-      if (GlobalSetting.muteOnInactive) this.onFocusChanged(true)
+    window.addEventListener('visibilitychange', () => {
+      if (GlobalSetting.muteOnInactive) this.onFocusChanged(!document.hidden)
     })
   }
 
   private setUpAudio(): void {
-    const audioContextClass = window.AudioContext || window.webkitAudioContext
-    AudioManager.setUp(audioContextClass)
+    AudioManager.setUp()
     AudioManager.setMasterVolume(GlobalSetting.volume)
 
     const icon = document.getElementById('audio-toggle-icon') as HTMLImageElement
@@ -422,6 +418,8 @@ window.addEventListener('DOMContentLoaded', () => {
       globalThis.FileReader &&
       globalThis.FileList &&
       globalThis.Blob &&
+      globalThis.AudioContext &&
+      globalThis.localStorage &&
       globalThis.requestAnimationFrame
     )
   ) {

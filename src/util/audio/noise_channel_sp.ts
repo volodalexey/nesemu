@@ -13,7 +13,7 @@ export class SpNoiseChannel extends INoiseChannel {
     this.sampler = new NoiseSampler(context.sampleRate)
 
     this.node = context.createScriptProcessor(SP_NOISE_BUFFER_SIZE, 0, 1)
-    this.node.onaudioprocess = (e) => {
+    this.node.onaudioprocess = e => {
       const output = e.outputBuffer.getChannelData(0)
       this.sampler.fillBuffer(output)
     }
@@ -27,8 +27,7 @@ export class SpNoiseChannel extends INoiseChannel {
     }
   }
 
-  public start(): void {
-  }
+  public start(): void {}
 
   public setEnable(enable: boolean): void {
     this.sampler.setEnable(enable)

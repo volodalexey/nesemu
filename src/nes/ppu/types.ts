@@ -7,23 +7,23 @@ export const enum MirrorMode {
 }
 
 export const enum PpuReg {
-  CTRL,    // $2000
-  MASK,    // $2001
-  STATUS,  // $2002
+  CTRL, // $2000
+  MASK, // $2001
+  STATUS, // $2002
   OAMADDR, // $2003
   OAMDATA, // $2004
-  SCROLL,  // $2005
-  ADDR,    // $2006
-  DATA,    // $2007
+  SCROLL, // $2005
+  ADDR, // $2006
+  DATA, // $2007
 }
 
 // PPUCTRL ($2000)
 export const enum PpuCtrlBit {
-  VINT_ENABLE = 0x80,  // V: 1=Trigger NMI when VBLANK start
+  VINT_ENABLE = 0x80, // V: 1=Trigger NMI when VBLANK start
   SPRITE_SIZE = 0x20,
   BG_PATTERN_TABLE_ADDRESS = 0x10,
   SPRITE_PATTERN_TABLE_ADDRESS = 0x08,
-  INCREMENT_MODE = 0x04,  // I: 1=+32, 0=+1
+  INCREMENT_MODE = 0x04, // I: 1=+32, 0=+1
   BASE_NAMETABLE_ADDRESS = 0x03,
 }
 

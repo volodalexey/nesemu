@@ -1,17 +1,19 @@
-import {Address, Byte} from "../types";
-import {IChannel, IPulseChannel, WaveType} from "../apu";
+import {WaveType} from '../apu/apu.constants'
+import {IChannel} from '../apu/channel'
+import {IPulseChannel} from '../apu/pulse'
+import {Address, Byte} from '../types'
 
 const kWaveTypes: WaveType[] = [
-  WaveType.PULSE,  // 仮
+  WaveType.PULSE, // 仮
 ]
 
 export const Reg = {
   // + 0x4080
-  VOLUME_ENVELOPE  : 0x00,
-  FREQUENCY_LOW    : 0x02,
-  FREQUENCY_HIGH   : 0x03,
-  MOD_ENVELOPE     : 0x04,
-  ENVELOPE_SPEED   : 0x0a,
+  VOLUME_ENVELOPE: 0x00,
+  FREQUENCY_LOW: 0x02,
+  FREQUENCY_HIGH: 0x03,
+  MOD_ENVELOPE: 0x04,
+  ENVELOPE_SPEED: 0x0a,
 } as const
 type Reg = (typeof Reg)[keyof typeof Reg]
 
@@ -69,7 +71,6 @@ export class FdsChannel implements IChannel, IPulseChannel {
     // const e = this.regs[Reg.MOD_ENVELOPE] & 0x3f
     // const m = this.regs[Reg.ENVELOPE_SPEED]
 
-
     // c = CPU clocks per tick
     // e = envelope speed ($4080/4084)
     // m = master envelope speed ($408A)
@@ -91,8 +92,7 @@ export class FdsChannel implements IChannel, IPulseChannel {
 
   public setEnable(value: boolean): void {
     this.enabled = value
-    if (!value)
-      this.stopped = true
+    if (!value) this.stopped = true
   }
 
   public update(): void {}
@@ -120,17 +120,17 @@ export class FdsAudio {
       const type = kWaveTypes[i]
       let channel: FdsChannel
       switch (type) {
-      case WaveType.PULSE:
-        channel = new FdsChannel()
-        break
-      default:
-        continue
+        case WaveType.PULSE:
+          channel = new FdsChannel()
+          break
+        default:
+          continue
       }
       this.channels[i] = channel
     }
   }
 
-  public getExtraChannelWaveTypes(): WaveType[]|null {
+  public getExtraChannelWaveTypes(): WaveType[] | null {
     return kWaveTypes
   }
 

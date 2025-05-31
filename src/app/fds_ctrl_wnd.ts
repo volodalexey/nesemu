@@ -7,7 +7,10 @@ export class FdsCtrlWnd extends Wnd {
   private sideCount = 0
   private select: HTMLSelectElement
 
-  constructor(wndMgr: WindowManager, private fds: Fds) {
+  constructor(
+    wndMgr: WindowManager,
+    private fds: Fds,
+  ) {
     super(wndMgr, 80, 30, 'FDS Ctrl')
 
     this.select = this.createUi()
@@ -21,11 +24,9 @@ export class FdsCtrlWnd extends Wnd {
   }
 
   private checkSideCount(): boolean {
-    if (this.sideCount !== 0)
-      return false
+    if (this.sideCount !== 0) return false
     const count = this.fds.getSideCount()
-    if (count <= 0)
-      return false
+    if (count <= 0) return false
     this.sideCount = count
     this.createOptions(this.select, count)
     return true
@@ -60,8 +61,7 @@ export class FdsCtrlWnd extends Wnd {
       option.innerText = `${((i / 2) | 0) + 1}-${side[i & 1]}`
       select.appendChild(option)
     }
-    if (sideCount > 0)
-      select.value = '1-A'
+    if (sideCount > 0) select.value = '1-A'
 
     select.addEventListener('change', () => {
       const index = select.selectedIndex

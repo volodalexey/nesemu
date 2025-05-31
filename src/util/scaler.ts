@@ -89,9 +89,9 @@ export class ScanlineScaler extends Scaler {
       let si = y * (WIDTH * 4)
       let di = si * 2
       for (let x = 0; x < WIDTH; ++x) {
-        dst[di + 0] = src[si + 0]  // R
-        dst[di + 1] = src[si + 1]  // G
-        dst[di + 2] = src[si + 2]  // B
+        dst[di + 0] = src[si + 0] // R
+        dst[di + 1] = src[si + 1] // G
+        dst[di + 2] = src[si + 2] // B
         si += 4
         di += 4
       }
@@ -99,9 +99,9 @@ export class ScanlineScaler extends Scaler {
       // Odd line: half color
       si = y * (WIDTH * 4)
       for (let x = 0; x < WIDTH; ++x) {
-        dst[di + 0] = (src[si + 0] * s) >> 8  // R
-        dst[di + 1] = (src[si + 1] * s) >> 8  // G
-        dst[di + 2] = (src[si + 2] * s) >> 8  // B
+        dst[di + 0] = (src[si + 0] * s) >> 8 // R
+        dst[di + 1] = (src[si + 1] * s) >> 8 // G
+        dst[di + 2] = (src[si + 2] * s) >> 8 // B
         si += 4
         di += 4
       }
@@ -145,15 +145,15 @@ export class CrtScaler extends Scaler {
         const r2 = r >> 1
         const g2 = g >> 1
         const b2 = b >> 1
-        const nr2 = x < WIDTH - 1 ? (src[si + 4]) >> 1 : 0
-        dst[di +  0] = Math.min(r, 255)
-        dst[di +  1] = g2
-        dst[di +  2] = pb2
-        dst[di +  4] = r2
-        dst[di +  5] = Math.min(g, 255)
-        dst[di +  6] = b2
-        dst[di +  8] = nr2
-        dst[di +  9] = g2
+        const nr2 = x < WIDTH - 1 ? src[si + 4] >> 1 : 0
+        dst[di + 0] = Math.min(r, 255)
+        dst[di + 1] = g2
+        dst[di + 2] = pb2
+        dst[di + 4] = r2
+        dst[di + 5] = Math.min(g, 255)
+        dst[di + 6] = b2
+        dst[di + 8] = nr2
+        dst[di + 9] = g2
         dst[di + 10] = Math.min(b, 255)
         pb2 = b2
         si += 4
@@ -195,40 +195,39 @@ export class EpxScaler extends Scaler {
         const x0 = Math.max(x - 1, 0) | 0
         const x2 = Math.min(x + 1, WIDTH - 1) | 0
 
-        const pc = (y  * WIDTH + x ) * 4
-        const pu = (y0 * WIDTH + x ) * 4
-        const pd = (y2 * WIDTH + x ) * 4
-        const pl = (y  * WIDTH + x0) * 4
-        const pr = (y  * WIDTH + x2) * 4
+        const pc = (y * WIDTH + x) * 4
+        const pu = (y0 * WIDTH + x) * 4
+        const pd = (y2 * WIDTH + x) * 4
+        const pl = (y * WIDTH + x0) * 4
+        const pr = (y * WIDTH + x2) * 4
         const cc = (src[pc + 0] << 16) | (src[pc + 1] << 8) | src[pc + 2]
         const cu = (src[pu + 0] << 16) | (src[pu + 1] << 8) | src[pu + 2]
         const cd = (src[pd + 0] << 16) | (src[pd + 1] << 8) | src[pd + 2]
         const cl = (src[pl + 0] << 16) | (src[pl + 1] << 8) | src[pl + 2]
         const cr = (src[pr + 0] << 16) | (src[pr + 1] << 8) | src[pr + 2]
 
-        let d1 = cc, d2 = cc, d3 = cc, d4 = cc
-        if (cl === cu && cl !== cd && cu !== cr)
-          d1 = cu
-        if (cu === cr && cu !== cl && cr !== cd)
-          d2 = cr
-        if (cd === cl && cd !== cr && cl !== cu)
-          d3 = cl
-        if (cr === cd && cr !== cu && cd !== cl)
-          d4 = cd
+        let d1 = cc,
+          d2 = cc,
+          d3 = cc,
+          d4 = cc
+        if (cl === cu && cl !== cd && cu !== cr) d1 = cu
+        if (cu === cr && cu !== cl && cr !== cd) d2 = cr
+        if (cd === cl && cd !== cr && cl !== cu) d3 = cl
+        if (cr === cd && cr !== cu && cd !== cl) d4 = cd
 
         const di = (y * (WIDTH * 2) + x) * (4 * 2)
-        dst[di + 0] =  d1 >> 16
-        dst[di + 1] = (d1 >>  8) & 0xff
-        dst[di + 2] =  d1        & 0xff
-        dst[di + 4] =  d2 >> 16
-        dst[di + 5] = (d2 >>  8) & 0xff
-        dst[di + 6] =  d2        & 0xff
-        dst[di + (0 + WIDTH * 8)] =  d3 >> 16
-        dst[di + (1 + WIDTH * 8)] = (d3 >>  8) & 0xff
-        dst[di + (2 + WIDTH * 8)] =  d3        & 0xff
-        dst[di + (4 + WIDTH * 8)] =  d4 >> 16
-        dst[di + (5 + WIDTH * 8)] = (d4 >>  8) & 0xff
-        dst[di + (6 + WIDTH * 8)] =  d4        & 0xff
+        dst[di + 0] = d1 >> 16
+        dst[di + 1] = (d1 >> 8) & 0xff
+        dst[di + 2] = d1 & 0xff
+        dst[di + 4] = d2 >> 16
+        dst[di + 5] = (d2 >> 8) & 0xff
+        dst[di + 6] = d2 & 0xff
+        dst[di + (0 + WIDTH * 8)] = d3 >> 16
+        dst[di + (1 + WIDTH * 8)] = (d3 >> 8) & 0xff
+        dst[di + (2 + WIDTH * 8)] = d3 & 0xff
+        dst[di + (4 + WIDTH * 8)] = d4 >> 16
+        dst[di + (5 + WIDTH * 8)] = (d4 >> 8) & 0xff
+        dst[di + (6 + WIDTH * 8)] = d4 & 0xff
       }
     }
 

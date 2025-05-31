@@ -2,7 +2,6 @@ import {WindowManager} from '../wnd/window_manager'
 import {Wnd} from '../wnd/wnd'
 
 import {AudioManager} from '../util/audio_manager'
-import {WaveType, INoiseChannel} from '../nes/apu'
 import {DomUtil} from '../util/dom_util'
 import {GlobalSetting} from './global_setting'
 import {Nes} from '../nes/nes'
@@ -10,13 +9,12 @@ import {Ppu} from '../nes/ppu/ppu'
 import {PpuDebug} from './ppu_debug'
 import {kPaletColors} from '../nes/ppu/const'
 
-import {AppEvent} from './app_event'
-import {Util} from '../util/util'
+import {AppEventType, AppStream} from './app_event'
 
 import * as Pubsub from '../util/pubsub'
 import {default as Stats} from 'stats-js'
 
-import aboutHtmlContent from '../res/about.html?inline'
+import aboutHtmlContent from '../res/about.html?raw'
 import githubLogoSvg from '../res/github-logo.svg?raw'
 
 import pluseImg from '../res/pulse.png'
@@ -24,12 +22,18 @@ import triangleImg from '../res/triangle.png'
 import noiseImg from '../res/noise.png'
 import dmcImg from '../res/dmc.png'
 import sawtoothImg from '../res/sawtooth.png'
+import {AppSpeed} from './constants'
+import {WaveType} from '../nes/apu/apu.constants'
+import {INoiseChannel} from '../nes/apu/noise'
 
 export class FpsWnd extends Wnd {
   private subscription: Pubsub.Subscription
   private stats: typeof Stats
 
-  constructor(wndMgr: WindowManager, private stream: AppEvent.Stream) {
+  constructor(
+    wndMgr: WindowManager,
+    private stream: AppStream,
+  ) {
     super(wndMgr, 80, 48, 'Fps')
 
     const content = document.createElement('div')
@@ -43,17 +47,16 @@ export class FpsWnd extends Wnd {
     this.stats.domElement.style.position = ''
     content.appendChild(this.stats.domElement)
 
-    this.subscription = this.stream
-      .subscribe(type => {
-        switch (type) {
-        case AppEvent.Type.START_CALC:
+    this.subscription = this.stream.subscribe(type => {
+      switch (type) {
+        case AppEventType.START_CALC:
           this.stats.begin()
           break
-        case AppEvent.Type.END_CALC:
+        case AppEventType.END_CALC:
           this.stats.end()
           break
-        }
-      })
+      }
+    })
 
     wndMgr.add(this)
   }
@@ -77,7 +80,11 @@ export class PaletWnd extends Wnd {
   private subscription: Pubsub.Subscription
   private selected = new Uint8Array(PaletWnd.H)
 
-  constructor(wndMgr: WindowManager, private nes: Nes, private stream: AppEvent.Stream) {
+  constructor(
+    wndMgr: WindowManager,
+    private nes: Nes,
+    private stream: AppStream,
+  ) {
     super(wndMgr, PaletWnd.W * PaletWnd.UNIT, PaletWnd.H * PaletWnd.UNIT, 'Palette')
 
     const {root, boxes, groups} = this.createDom()
@@ -92,14 +99,13 @@ export class PaletWnd extends Wnd {
       cornerOnly: true,
     })
 
-    this.subscription = this.stream
-      .subscribe(type => {
-        switch (type) {
-        case AppEvent.Type.RENDER:
+    this.subscription = this.stream.subscribe(type => {
+      switch (type) {
+        case AppEventType.RENDER:
           this.render()
           break
-        }
-      })
+      }
+    })
 
     this.palet.fill(-1)
     this.render()
@@ -109,8 +115,7 @@ export class PaletWnd extends Wnd {
 
   public getSelectedPalets(buf: Uint8Array): void {
     const selected = this.selected
-    for (let i = 0; i < selected.length; ++i)
-      buf[i] = selected[i]
+    for (let i = 0; i < selected.length; ++i) buf[i] = selected[i]
   }
 
   public close(): void {
@@ -126,14 +131,13 @@ export class PaletWnd extends Wnd {
     const n = PaletWnd.W * PaletWnd.H
     for (let i = 0; i < n; ++i) {
       const c = tmp[i]
-      if (c === this.palet[i])
-        continue
+      if (c === this.palet[i]) continue
       this.palet[i] = c
 
       const cc = kPaletColors[c]
-      const r =  cc >> 16
-      const g = (cc >>  8) & 0xff
-      const b =  cc        & 0xff
+      const r = cc >> 16
+      const g = (cc >> 8) & 0xff
+      const b = cc & 0xff
       this.boxes[i].style.backgroundColor = `rgb(${r},${g},${b})`
     }
   }
@@ -142,12 +146,12 @@ export class PaletWnd extends Wnd {
     const ppu = this.nes.getPpu()
     const n = PaletWnd.W * PaletWnd.H
     const paletTable = ppu.getPaletTable()
-    for (let i = 0; i < n; ++i)
-      buf[i] = paletTable[i] & 0x3f
+    for (let i = 0; i < n; ++i) buf[i] = paletTable[i] & 0x3f
   }
 
   private createDom(): {root: HTMLElement; boxes: HTMLElement[]; groups: HTMLElement[]} {
-    const W = PaletWnd.W, H = PaletWnd.H
+    const W = PaletWnd.W,
+      H = PaletWnd.H
     const root = document.createElement('div')
     root.className = 'full-size'
     DomUtil.setStyles(root, {
@@ -185,7 +189,7 @@ export class PaletWnd extends Wnd {
             marginBottom: '1px',
             flex: 1,
           })
-          boxes[(j * 4 + k) + i * W] = box
+          boxes[j * 4 + k + i * W] = box
           group.appendChild(box)
         }
       }
@@ -202,14 +206,14 @@ export class PaletWnd extends Wnd {
 
 export class NameTableWnd extends Wnd {
   private ppu: Ppu
-  private stream: AppEvent.Stream
+  private stream: AppStream
   private vert: boolean
   private canvas: HTMLCanvasElement
   private context: CanvasRenderingContext2D
   private imageData: ImageData
   private subscription: Pubsub.Subscription
 
-  public constructor(wndMgr: WindowManager, ppu: Ppu, stream: AppEvent.Stream, vert: boolean) {
+  public constructor(wndMgr: WindowManager, ppu: Ppu, stream: AppStream, vert: boolean) {
     const width = 256 * (vert ? 1 : 2)
     const height = 240 * (vert ? 2 : 1)
     super(wndMgr, width, height, 'NameTable')
@@ -231,14 +235,13 @@ export class NameTableWnd extends Wnd {
 
     this.addResizeBox()
 
-    this.subscription = this.stream
-      .subscribe(type => {
-        switch (type) {
-        case AppEvent.Type.RENDER:
+    this.subscription = this.stream.subscribe(type => {
+      switch (type) {
+        case AppEventType.RENDER:
           this.render()
           break
-        }
-      })
+      }
+    })
     this.render()
 
     wndMgr.add(this)
@@ -254,8 +257,14 @@ export class NameTableWnd extends Wnd {
     const page1X = this.vert ? 0 : 256
     const page1Y = this.vert ? 240 : 0
     PpuDebug.renderNameTable1(this.ppu, this.imageData.data, this.imageData.width, 0, 0, 0)
-    PpuDebug.renderNameTable1(this.ppu, this.imageData.data, this.imageData.width,
-                              page1X, page1Y, 1)
+    PpuDebug.renderNameTable1(
+      this.ppu,
+      this.imageData.data,
+      this.imageData.width,
+      page1X,
+      page1Y,
+      1,
+    )
     this.context.putImageData(this.imageData, 0, 0)
   }
 }
@@ -276,8 +285,12 @@ export class PatternTableWnd extends Wnd {
     return canvas
   }
 
-  public constructor(wndMgr: WindowManager, private ppu: Ppu, private stream: AppEvent.Stream,
-                     private getSelectedPalets: (buf: Uint8Array) => boolean) {
+  public constructor(
+    wndMgr: WindowManager,
+    private ppu: Ppu,
+    private stream: AppStream,
+    private getSelectedPalets: (buf: Uint8Array) => boolean,
+  ) {
     super(wndMgr, 256, 128, 'PatternTable')
 
     const canvas = PatternTableWnd.createCanvas()
@@ -292,14 +305,13 @@ export class PatternTableWnd extends Wnd {
       minHeight: 128 / 2,
     })
 
-    this.subscription = this.stream
-      .subscribe(type => {
-        switch (type) {
-        case AppEvent.Type.RENDER:
+    this.subscription = this.stream.subscribe(type => {
+      switch (type) {
+        case AppEventType.RENDER:
           this.render()
           break
-        }
-      })
+      }
+    })
     this.render()
 
     wndMgr.add(this)
@@ -327,10 +339,16 @@ export class GlobalPaletWnd extends Wnd {
 
   private boxes: HTMLElement[]
 
-  constructor(wndMgr: WindowManager, private onClose?: () => void) {
-    super(wndMgr,
-          GlobalPaletWnd.W * GlobalPaletWnd.UNIT, GlobalPaletWnd.H * GlobalPaletWnd.UNIT,
-          'Global palette')
+  constructor(
+    wndMgr: WindowManager,
+    private onClose?: () => void,
+  ) {
+    super(
+      wndMgr,
+      GlobalPaletWnd.W * GlobalPaletWnd.UNIT,
+      GlobalPaletWnd.H * GlobalPaletWnd.UNIT,
+      'Global palette',
+    )
 
     const {root, boxes} = this.createDom()
     this.setContent(root)
@@ -340,9 +358,9 @@ export class GlobalPaletWnd extends Wnd {
     const n = this.boxes.length
     for (let i = 0; i < n; ++i) {
       const c = kPaletColors[i]
-      const r =  c >> 16
-      const g = (c >>  8) & 0xff
-      const b =  c        & 0xff
+      const r = c >> 16
+      const g = (c >> 8) & 0xff
+      const b = c & 0xff
       this.boxes[i].style.backgroundColor = `rgb(${r},${g},${b})`
     }
 
@@ -355,13 +373,13 @@ export class GlobalPaletWnd extends Wnd {
   }
 
   public close(): void {
-    if (this.onClose != null)
-      this.onClose()
+    if (this.onClose != null) this.onClose()
     super.close()
   }
 
   private createDom(): {root: HTMLElement; boxes: HTMLElement[]} {
-    const W = GlobalPaletWnd.W, H = GlobalPaletWnd.H
+    const W = GlobalPaletWnd.W,
+      H = GlobalPaletWnd.H
     const root = document.createElement('div')
     root.className = 'clearfix'
     DomUtil.setStyles(root, {
@@ -399,17 +417,11 @@ export class GlobalPaletWnd extends Wnd {
   }
 }
 
-const kToneTable: number[] = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12]  // F F# G G# A A# B C C# D D# E
+const kToneTable: number[] = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12] // F F# G G# A A# B C C# D D# E
 
-const kWaveTypeImages: string[] = [
-  pluseImg,
-  triangleImg,
-  noiseImg,
-  dmcImg,
-  sawtoothImg,
-]
+const kWaveTypeImages: string[] = [pluseImg, triangleImg, noiseImg, dmcImg, sawtoothImg]
 
-const WHITE_NOTE = 7  // A, B, C, D, E, F, G
+const WHITE_NOTE = 7 // A, B, C, D, E, F, G
 const ALL_NOTE = 12
 const KEY_FLASH_COLOR = '#0ef'
 
@@ -418,11 +430,11 @@ export class AudioWnd extends Wnd {
   private static H = 32
   private static OCTAVE = 6
 
-  private static kBaseToneFreq = 43.65  // F1
-  private static kBaseTone = ALL_NOTE * Math.log(AudioWnd.kBaseToneFreq) / Math.log(2)
+  private static kBaseToneFreq = 43.65 // F1
+  private static kBaseTone = (ALL_NOTE * Math.log(AudioWnd.kBaseToneFreq)) / Math.log(2)
 
   private nes: Nes
-  private stream: AppEvent.Stream
+  private stream: AppStream
   private subscription: Pubsub.Subscription
   private waveTypes: Array<WaveType>
   private channelIndices: Array<number>
@@ -430,7 +442,7 @@ export class AudioWnd extends Wnd {
   private keys: Array<Array<HTMLElement>>
   private lastKeyIndices: Int32Array
 
-  public constructor(wndMgr: WindowManager, nes: Nes, stream: AppEvent.Stream) {
+  public constructor(wndMgr: WindowManager, nes: Nes, stream: AppStream) {
     const waveTypes = nes.getChannelWaveTypes()
     const channelIndices = [...Array(waveTypes.length).keys()]
     const channelCount = channelIndices.length
@@ -450,14 +462,13 @@ export class AudioWnd extends Wnd {
     this.lastKeyIndices = new Int32Array(channelCount)
     this.lastKeyIndices.fill(-1)
 
-    this.subscription = this.stream
-      .subscribe(type => {
-        switch (type) {
-        case AppEvent.Type.RENDER:
+    this.subscription = this.stream.subscribe(type => {
+      switch (type) {
+        case AppEventType.RENDER:
           this.render()
           break
-        }
-      })
+      }
+    })
     this.render()
 
     wndMgr.add(this)
@@ -473,8 +484,8 @@ export class AudioWnd extends Wnd {
     const h = AudioWnd.H
     const logScale = ALL_NOTE / Math.log(2)
     const xScale = AudioWnd.W
-    const yWhite = (h * 3 / 4) | 0
-    const yBlack = (h * 1 / 4) | 0
+    const yWhite = ((h * 3) / 4) | 0
+    const yBlack = ((h * 1) / 4) | 0
     const DOT_W = 12
     for (let ich = 0; ich < this.channelIndices.length; ++ich) {
       const channel = this.nes.getSoundChannel(this.channelIndices[ich])
@@ -484,56 +495,68 @@ export class AudioWnd extends Wnd {
       let vol = 0
 
       switch (waveType) {
-      case WaveType.NOISE:
-        {
-          vol = channel.isEnabled() ? channel.getVolume() : 0
-          const [period, _mode] = (channel as unknown as INoiseChannel).getNoisePeriod()
-          const APU_NOISE_HZ = 894887
-          const freq = (APU_NOISE_HZ / 32) / (period + 1)  // ???
-          const toneIndex = Math.log(freq) * logScale - AudioWnd.kBaseTone + 0.5
-          if ((toneIndex >= 0 && toneIndex <= AudioWnd.OCTAVE * ALL_NOTE) && vol > 0) {
-            const offset = kToneTable[(toneIndex | 0) % ALL_NOTE] | 0
-            x = Math.round(((offset * 0.5) + (Math.floor(toneIndex / ALL_NOTE) | 0) * WHITE_NOTE + (toneIndex % 1)) * xScale) | 0
+        case WaveType.NOISE:
+          {
+            vol = channel.isEnabled() ? channel.getVolume() : 0
+            const [period, _mode] = (channel as unknown as INoiseChannel).getNoisePeriod()
+            const APU_NOISE_HZ = 894887
+            const freq = APU_NOISE_HZ / 32 / (period + 1) // ???
+            const toneIndex = Math.log(freq) * logScale - AudioWnd.kBaseTone + 0.5
+            if (toneIndex >= 0 && toneIndex <= AudioWnd.OCTAVE * ALL_NOTE && vol > 0) {
+              const offset = kToneTable[(toneIndex | 0) % ALL_NOTE] | 0
+              x =
+                Math.round(
+                  (offset * 0.5 +
+                    (Math.floor(toneIndex / ALL_NOTE) | 0) * WHITE_NOTE +
+                    (toneIndex % 1)) *
+                    xScale,
+                ) | 0
+              y = AudioWnd.H * 0.25
+            } else {
+              vol = 0
+            }
+          }
+          break
+        case WaveType.DMC:
+          {
+            vol = channel.isEnabled() ? channel.getVolume() : 0
+            x = AudioWnd.W * AudioWnd.OCTAVE * 7 * 0.5
             y = AudioWnd.H * 0.25
-          } else {
-            vol = 0
           }
-        }
-        break
-      case WaveType.DMC:
-        {
-          vol = channel.isEnabled() ? channel.getVolume() : 0
-          x = (AudioWnd.W * AudioWnd.OCTAVE * 7) * 0.5;
-          y = AudioWnd.H * 0.25
-        }
-        break
-      default:
-        {
-          vol = channel.isEnabled() ? channel.getVolume() : 0
-          const freq = channel.getFrequency()
-          const toneIndex = Math.log(freq) * logScale - AudioWnd.kBaseTone + 0.5
-          let keyIndex = -1
-          if ((toneIndex >= 0 && toneIndex <= AudioWnd.OCTAVE * ALL_NOTE) && vol > 0) {
-            const offset = kToneTable[(toneIndex | 0) % ALL_NOTE] | 0
-            x = Math.round(((offset * 0.5) + (Math.floor(toneIndex / ALL_NOTE) | 0) * WHITE_NOTE + (toneIndex % 1)) * xScale) | 0
-            y = (offset & 1) === 0 ? yWhite : yBlack
-            keyIndex = Math.floor(toneIndex) | 0
-          }
+          break
+        default:
+          {
+            vol = channel.isEnabled() ? channel.getVolume() : 0
+            const freq = channel.getFrequency()
+            const toneIndex = Math.log(freq) * logScale - AudioWnd.kBaseTone + 0.5
+            let keyIndex = -1
+            if (toneIndex >= 0 && toneIndex <= AudioWnd.OCTAVE * ALL_NOTE && vol > 0) {
+              const offset = kToneTable[(toneIndex | 0) % ALL_NOTE] | 0
+              x =
+                Math.round(
+                  (offset * 0.5 +
+                    (Math.floor(toneIndex / ALL_NOTE) | 0) * WHITE_NOTE +
+                    (toneIndex % 1)) *
+                    xScale,
+                ) | 0
+              y = (offset & 1) === 0 ? yWhite : yBlack
+              keyIndex = Math.floor(toneIndex) | 0
+            }
 
-          const lastKeyIndex = this.lastKeyIndices[ich]
-          if (keyIndex !== lastKeyIndex) {
-            if (lastKeyIndex >= 0) {
-              const key = this.keys[ich][lastKeyIndex]
-              key.style.removeProperty('background-color')
+            const lastKeyIndex = this.lastKeyIndices[ich]
+            if (keyIndex !== lastKeyIndex) {
+              if (lastKeyIndex >= 0) {
+                const key = this.keys[ich][lastKeyIndex]
+                key.style.removeProperty('background-color')
+              }
+              if (keyIndex >= 0) {
+                const key = this.keys[ich][keyIndex]
+                key.style.setProperty('background-color', KEY_FLASH_COLOR)
+              }
+              this.lastKeyIndices[ich] = keyIndex
             }
-            if (keyIndex >= 0) {
-              const key = this.keys[ich][keyIndex]
-              key.style.setProperty('background-color', KEY_FLASH_COLOR)
-            }
-            this.lastKeyIndices[ich] = keyIndex
           }
-        }
-        break
+          break
       }
 
       const dot = this.dots[ich]
@@ -557,10 +580,12 @@ export class AudioWnd extends Wnd {
     }
   }
 
-  private createDom(channelCount: number, waveTypes: WaveType[]):
-      {root: HTMLElement; dots: Array<HTMLElement>, keys: Array<Array<HTMLElement>>}
-  {
-    const W = AudioWnd.W, H = AudioWnd.H
+  private createDom(
+    channelCount: number,
+    waveTypes: WaveType[],
+  ): {root: HTMLElement; dots: Array<HTMLElement>; keys: Array<Array<HTMLElement>>} {
+    const W = AudioWnd.W,
+      H = AudioWnd.H
     const root = document.createElement('div')
     const width = W * AudioWnd.OCTAVE * WHITE_NOTE
     const height = H * channelCount
@@ -618,10 +643,8 @@ export class AudioWnd extends Wnd {
           }
         }
 
-        for (const whiteKey of whiteKeys)
-          line.appendChild(whiteKey)
-        for (const blackKey of blackKeys)
-          line.appendChild(blackKey)
+        for (const whiteKey of whiteKeys) line.appendChild(whiteKey)
+        for (const blackKey of blackKeys) line.appendChild(blackKey)
       }
 
       const icon = document.createElement('img')
@@ -656,7 +679,7 @@ export class AudioWnd extends Wnd {
         pointerEvents: 'none',
       })
       line.appendChild(mask)
-      line.addEventListener('click', (_ev) => {
+      line.addEventListener('click', _ev => {
         const channelActive = mask.style.display !== 'none'
         mask.style.display = channelActive ? 'none' : 'inherit'
         this.stream.triggerEnableAudioChannel(this.channelIndices[ch], channelActive)
@@ -670,7 +693,10 @@ export class AudioWnd extends Wnd {
 }
 
 export class AboutWnd extends Wnd {
-  constructor(wndMgr: WindowManager, private onClose: () => void) {
+  constructor(
+    wndMgr: WindowManager,
+    private onClose: () => void,
+  ) {
     super(wndMgr, 200, 128, 'About')
 
     const root = document.createElement('div')
@@ -701,7 +727,10 @@ export class AboutWnd extends Wnd {
 export class SettingWnd extends Wnd {
   protected valueElems = new Array<HTMLInputElement>()
 
-  public constructor(wndMgr: WindowManager, private onClose: () => void) {
+  public constructor(
+    wndMgr: WindowManager,
+    private onClose: () => void,
+  ) {
     super(wndMgr, 256, 160, 'Setting')
 
     const content = this.createContent()
@@ -731,16 +760,20 @@ export class SettingWnd extends Wnd {
         type: Type.CHECKBOX,
         message: 'Pause on menu',
         getValue: () => GlobalSetting.pauseOnMenu,
-        onchange(_event: Event) {
-          GlobalSetting.pauseOnMenu = !!(this as any).checked
+        onchange(event: Event) {
+          if (event.target && event.target instanceof HTMLInputElement) {
+            GlobalSetting.pauseOnMenu = !!event.target.checked
+          }
         },
       },
       {
         type: Type.CHECKBOX,
         message: 'Mute on inactive',
         getValue: () => GlobalSetting.muteOnInactive,
-        onchange(_event: Event) {
-          GlobalSetting.muteOnInactive = (this as any).checked
+        onchange(event: Event) {
+          if (event.target && event.target instanceof HTMLInputElement) {
+            GlobalSetting.muteOnInactive = event.target.checked
+          }
         },
       },
       {
@@ -748,86 +781,89 @@ export class SettingWnd extends Wnd {
         message: 'Volume',
         max: 100,
         getValue: () => Math.round(GlobalSetting.volume * 100).toString(),
-        onchange(_event: Event) {
-          const volume = ((this as any).value) / 100
-          AudioManager.setMasterVolume(volume)
-          GlobalSetting.volume = volume
-        },
-        onfinish(_event: Event) {
+        onchange(event: Event) {
+          if (event.target && event.target instanceof HTMLInputElement) {
+            const volume = Number(event.target.value) / 100
+            AudioManager.setMasterVolume(volume)
+            GlobalSetting.volume = volume
+          }
         },
       },
       {
         type: Type.RANGE,
         message: () => {
-          const speed = Math.round(GlobalSetting.emulationSpeed * 100) | 0
-          const frac = `${speed % 100}`.padStart(2, '0')
-          return `Speed ${(speed / 100) | 0}.${frac}`
+          // const speed = Math.round(GlobalSetting.emulationSpeed * 100) | 0
+          // const frac = `${speed % 100}`.padStart(2, '0')
+          // return `Speed ${(speed) | 0}.${frac}`
+          return `Speed ${GlobalSetting.emulationSpeed.toFixed(2).toString()}`
         },
-        max: 6,
+        min: AppSpeed.min,
+        step: AppSpeed.step,
+        max: AppSpeed.max,
         getValue: () => {
-          const speed = GlobalSetting.emulationSpeed
-          const index = Util.clamp(Math.round((speed - 0.5) / 0.25), 0, 6)
-          return index.toString()
+          // const speed = GlobalSetting.emulationSpeed
+          // const index = Util.clamp(Math.round((speed - 0.5) / 0.25), 0, 6)
+          // return index.toString()
+          return String(GlobalSetting.emulationSpeed)
         },
-        onchange(_event: Event) {
-          const speedIndex = parseInt((this as any).value)
-          GlobalSetting.emulationSpeed = speedIndex * 0.25 + 0.5
+        onchange(event: Event) {
+          if (event.target && event.target instanceof HTMLInputElement) {
+            // const speedIndex = parseInt(event.target.value)
+            // GlobalSetting.emulationSpeed = speedIndex * 0.25 + 0.5
+            GlobalSetting.emulationSpeed = parseFloat(event.target.value)
+          }
         },
       },
     ]
 
     function getMessage(message: string | (() => string)): string {
-      if (typeof(message) === 'string')
-        return message
-      else
-        return message()
+      if (typeof message === 'string') return message
+      else return message()
     }
 
     for (const elem of table) {
       const row = document.createElement('div')
       switch (elem.type) {
-      case Type.CHECKBOX:
-        {
-          const message = getMessage(elem.message)
-          const input = document.createElement('input')
-          input.type = 'checkbox'
-          input.id = message
-          input.checked = elem.getValue() as boolean
-          input.onchange = elem.onchange!
-          row.appendChild(input)
+        case Type.CHECKBOX:
+          {
+            const message = getMessage(elem.message)
+            const input = document.createElement('input')
+            input.type = 'checkbox'
+            input.id = message
+            input.checked = elem.getValue() as boolean
+            input.onchange = elem.onchange!
+            row.appendChild(input)
 
-          const label = document.createElement('label')
-          label.setAttribute('for', message)
-          const text = document.createTextNode(message)
-          label.appendChild(text)
-          row.appendChild(label)
-        }
-        break
-      case Type.RANGE:
-        {
-          const message = getMessage(elem.message)
-          const text = document.createTextNode(message)
-          row.appendChild(text)
-
-          const input = document.createElement('input')
-          input.type = 'range'
-          if (typeof(elem.message) === 'string') {
-            input.oninput = elem.onchange!
-          } else {
-            input.oninput = function(ev) {
-              if (elem.onchange != null)
-                elem.onchange.call(this, ev)
-              text.textContent = getMessage(elem.message)
-            }
+            const label = document.createElement('label')
+            label.setAttribute('for', message)
+            const text = document.createTextNode(message)
+            label.appendChild(text)
+            row.appendChild(label)
           }
-          input.onmouseup = elem.onfinish!
-          input.ontouchend = elem.onfinish!
-          if (elem.max)
-            input.max = elem.max.toString()
-          input.value = elem.getValue() as string
-          row.appendChild(input)
-        }
-        break
+          break
+        case Type.RANGE:
+          {
+            const message = getMessage(elem.message)
+            const text = document.createTextNode(message)
+            row.appendChild(text)
+
+            const input = document.createElement('input')
+            input.type = 'range'
+            if (typeof elem.message === 'string') {
+              input.oninput = elem.onchange
+            } else {
+              input.oninput = function (ev) {
+                if (elem.onchange != null) elem.onchange.call(this, ev)
+                text.textContent = getMessage(elem.message)
+              }
+            }
+            if (elem.min) input.min = elem.min.toString()
+            if (elem.step) input.step = elem.step.toString()
+            if (elem.max) input.max = elem.max.toString()
+            input.value = elem.getValue() as string
+            row.appendChild(input)
+          }
+          break
       }
       container.append(row)
     }

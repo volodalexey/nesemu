@@ -9,8 +9,7 @@ export class KeyboardManager {
 
   public onKeyUp(event: KeyboardEvent): void {
     this.pressingKeys[event.code] = false
-    if (this.lastPressing === event.code)
-      this.lastPressing = null
+    if (this.lastPressing === event.code) this.lastPressing = null
   }
 
   public clear(): void {

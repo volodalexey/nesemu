@@ -1,4 +1,4 @@
-import {Reg, DMC_LOOP_ENABLE, DMC_IRQ_ENABLE} from '../../nes/apu'
+import {DMC_IRQ_ENABLE, DMC_LOOP_ENABLE, Reg} from '../../nes/apu/apu.constants'
 
 function gcd(m: number, n: number): number {
   if (m < n) {
@@ -17,7 +17,7 @@ function gcd(m: number, n: number): number {
 }
 
 export const kDmcRateTable = [
-  428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54
+  428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54,
 ]
 
 export class DeltaModulationSampler {
@@ -44,7 +44,7 @@ export class DeltaModulationSampler {
     const APU_DMC_HZ = 894887 * 2
     const g = gcd(APU_DMC_HZ, sampleRate)
     const multiplier = Math.min(sampleRate / g, 0x7fff) | 0
-    this.sampleStep = (APU_DMC_HZ * multiplier / sampleRate) | 0
+    this.sampleStep = ((APU_DMC_HZ * multiplier) / sampleRate) | 0
 
     this.rateTable = new Float32Array(kDmcRateTable.map(x => x * multiplier))
     this.rate = this.rateTable[0]
@@ -55,8 +55,7 @@ export class DeltaModulationSampler {
   }
 
   public setEnable(enable: boolean): void {
-    if (!enable)
-      this.volume = 0
+    if (!enable) this.volume = 0
   }
 
   public setVolume(volume: number): void {
@@ -70,34 +69,33 @@ export class DeltaModulationSampler {
   public setDmcWrite(reg: number, value: number): void {
     if (reg >= 4) {
       switch (reg) {
-      case 0xff:
-        if (value === 0) {
-          this.dmaLengthCounter = 0
-        } else if (this.dmaLengthCounter <= 0) {
-          this.dmaLengthCounter = (this.regs[Reg.SAMPLE_LENGTH] << 4) + 1
-          this.dmaAddress = 0xc000 + (this.regs[Reg.SAMPLE_ADDRESS] << 6)
-          if (!this.dmaBuffered)
-            this.doDma()
-        }
-        break
-      default:
-        break
+        case 0xff:
+          if (value === 0) {
+            this.dmaLengthCounter = 0
+          } else if (this.dmaLengthCounter <= 0) {
+            this.dmaLengthCounter = (this.regs[Reg.SAMPLE_LENGTH] << 4) + 1
+            this.dmaAddress = 0xc000 + (this.regs[Reg.SAMPLE_ADDRESS] << 6)
+            if (!this.dmaBuffered) this.doDma()
+          }
+          break
+        default:
+          break
       }
       return
     }
 
     this.regs[reg] = value
     switch (reg) {
-    case Reg.STATUS:
-      this.rate = this.rateTable[value & 0x0f]
-      break
-    case Reg.DIRECT_LOAD:
-      this.outDac = value & 0x7f
-      break
-    case Reg.SAMPLE_ADDRESS:
-      break
-    case Reg.SAMPLE_LENGTH:
-      break
+      case Reg.STATUS:
+        this.rate = this.rateTable[value & 0x0f]
+        break
+      case Reg.DIRECT_LOAD:
+        this.outDac = value & 0x7f
+        break
+      case Reg.SAMPLE_ADDRESS:
+        break
+      case Reg.SAMPLE_LENGTH:
+        break
     }
   }
 
@@ -129,7 +127,7 @@ export class DeltaModulationSampler {
 
   private clockDac(): boolean {
     if (this.outActive) {
-      const n = this.outDac + ((this.outBuffer & 1) << 2) - 2  // +2 or -2
+      const n = this.outDac + ((this.outBuffer & 1) << 2) - 2 // +2 or -2
       this.outBuffer >>= 1
       if (0 <= n && n <= 0x7f && n !== this.outDac) {
         this.outDac = n
@@ -146,8 +144,7 @@ export class DeltaModulationSampler {
       if (this.outActive) {
         this.dmaBuffered = false
         this.outBuffer = this.dmaBuffer
-        if (this.dmaLengthCounter !== 0)
-          this.doDma()
+        if (this.dmaLengthCounter !== 0) this.doDma()
       }
     }
     --this.outShifter

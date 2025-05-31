@@ -33,7 +33,7 @@ function bit(x: Byte, shift: number) {
   return ((x >> shift) & 1) as Bit
 }
 
-interface Regs {
+interface CPURegs {
   a: Byte
   x: Byte
   y: Byte
@@ -42,6 +42,8 @@ interface Regs {
   pc: Address
 }
 
+export type CPUSaveData = CPURegs
+
 const BreakType = {
   NMI: 'nmi',
   IRQ: 'irq',
@@ -49,10 +51,10 @@ const BreakType = {
 type BreakType = (typeof BreakType)[keyof typeof BreakType]
 
 export class Cpu {
-  private a: Byte  // A register
-  private x: Byte  // X register
-  private y: Byte  // Y register
-  private s: Byte  // Stack pointer
+  private a: Byte // A register
+  private x: Byte // X register
+  private y: Byte // Y register
+  private s: Byte // Stack pointer
 
   // Status register [NVRBDIZC]
   private negative: Bit = 0
@@ -64,7 +66,7 @@ export class Cpu {
   private zero: Bit = 0
   private carry: Bit = 0
 
-  private pc: Address  // Program counter
+  private pc: Address // Program counter
   private nmiRequest = -1
   private irqRequest = 0
   private stallCycles = 0
@@ -89,7 +91,7 @@ export class Cpu {
     this.irqBlocked = 1
   }
 
-  public getRegs(): Regs {
+  public getRegs(): CPURegs {
     return {
       a: this.a,
       x: this.x,
@@ -100,11 +102,11 @@ export class Cpu {
     }
   }
 
-  public save(): object {
+  public save(): CPUSaveData {
     return this.getRegs()
   }
 
-  public load(saveData: any): void {
+  public load(saveData: CPUSaveData): void {
     this.a = saveData.a
     this.x = saveData.x
     this.y = saveData.y
@@ -130,7 +132,7 @@ export class Cpu {
 
   // Non-maskable interrupt
   public requestNmi(): void {
-    this.nmiRequest = 2  // TODO: confirm.
+    this.nmiRequest = 2 // TODO: confirm.
   }
 
   public requestIrq(type: IrqType): void {
@@ -164,8 +166,7 @@ export class Cpu {
     if (this.irqRequest !== 0 && this.irqBlocked === 0) {
       this.irqRequest = 0
       this.handleIrq()
-      if (this.paused)
-        return 0
+      if (this.paused) return 0
     }
 
     if (this.stallCycles > 0) {
@@ -189,480 +190,469 @@ export class Cpu {
     const pc = this.pc
     this.pc += inst.bytes - 1
     let cycle = inst.cycle
-    let adr: Address  // = this.getAdr(pc, inst.addressing)
+    let adr: Address // = this.getAdr(pc, inst.addressing)
 
     switch (inst.addressing) {
-    case Addressing.IMMEDIATE:
-    case Addressing.RELATIVE:
-      adr = pc
-      break
-    case Addressing.ZEROPAGE:
-      adr = this.read8(pc)
-      break
-    case Addressing.ZEROPAGE_X:
-      adr = (this.read8(pc) + this.x) & 0xff
-      break
-    case Addressing.ZEROPAGE_Y:
-      adr = (this.read8(pc) + this.y) & 0xff
-      break
-    case Addressing.ABSOLUTE:
-      adr = this.read16(pc)
-      break
-    case Addressing.ABSOLUTE_X:
-      {
-        const base = this.read16(pc)
-        adr = (base + this.x) & 0xffff
-        if (!inst.write)
-          cycle += (((adr ^ base) >> 8) & 1)  // 1 if page crossed or 0
-      }
-      break
-    case Addressing.ABSOLUTE_Y:
-      {
-        const base = this.read16(pc)
-        adr = (base + this.y) & 0xffff
-        if (!inst.write)
-          cycle += (((adr ^ base) >> 8) & 1)  // 1 if page crossed or 0
-      }
-      break
-    case Addressing.INDIRECT_X:
-      {
-        const zeroPageAdr = this.read8(pc)
-        adr = this.read16Indirect((zeroPageAdr + this.x) & 0xff)
-      }
-      break
-    case Addressing.INDIRECT_Y:
-      {
-        const zeroPageAdr = this.read8(pc)
-        const base = this.read16Indirect(zeroPageAdr)
-        adr = (base + this.y) & 0xffff
-        if (!inst.write)
-          cycle += (((adr ^ base) >> 8) & 1)  // 1 if page crossed or 0
-      }
-      break
-    case Addressing.INDIRECT:
-      {
-        const indirect = this.read16(pc)
-        adr = this.read16Indirect(indirect)
-      }
-      break
-    default:
-      console.error(`Illegal addressing: ${inst.addressing}, pc=${Util.hex(pc, 4)}`)
-      this.paused = true
+      case Addressing.IMMEDIATE:
+      case Addressing.RELATIVE:
+        adr = pc
+        break
+      case Addressing.ZEROPAGE:
+        adr = this.read8(pc)
+        break
+      case Addressing.ZEROPAGE_X:
+        adr = (this.read8(pc) + this.x) & 0xff
+        break
+      case Addressing.ZEROPAGE_Y:
+        adr = (this.read8(pc) + this.y) & 0xff
+        break
+      case Addressing.ABSOLUTE:
+        adr = this.read16(pc)
+        break
+      case Addressing.ABSOLUTE_X:
+        {
+          const base = this.read16(pc)
+          adr = (base + this.x) & 0xffff
+          if (!inst.write) cycle += ((adr ^ base) >> 8) & 1 // 1 if page crossed or 0
+        }
+        break
+      case Addressing.ABSOLUTE_Y:
+        {
+          const base = this.read16(pc)
+          adr = (base + this.y) & 0xffff
+          if (!inst.write) cycle += ((adr ^ base) >> 8) & 1 // 1 if page crossed or 0
+        }
+        break
+      case Addressing.INDIRECT_X:
+        {
+          const zeroPageAdr = this.read8(pc)
+          adr = this.read16Indirect((zeroPageAdr + this.x) & 0xff)
+        }
+        break
+      case Addressing.INDIRECT_Y:
+        {
+          const zeroPageAdr = this.read8(pc)
+          const base = this.read16Indirect(zeroPageAdr)
+          adr = (base + this.y) & 0xffff
+          if (!inst.write) cycle += ((adr ^ base) >> 8) & 1 // 1 if page crossed or 0
+        }
+        break
+      case Addressing.INDIRECT:
+        {
+          const indirect = this.read16(pc)
+          adr = this.read16Indirect(indirect)
+        }
+        break
+      default:
+        console.error(`Illegal addressing: ${inst.addressing}, pc=${Util.hex(pc, 4)}`)
+        this.paused = true
       // Fallthrough
-    case Addressing.ACCUMULATOR:
-    case Addressing.IMPLIED:
-      adr = 0  // Dummy.
-      break
+      case Addressing.ACCUMULATOR:
+      case Addressing.IMPLIED:
+        adr = 0 // Dummy.
+        break
     }
 
     // ========================================================
     // Dispatch
     switch (inst.opType) {
-    default:
-    // case OpType.UNKNOWN:  // Unreachable here.
-      break
-    case OpType.NOP:
-      break
-    case OpType.LDA:
-      this.a = this.read8(adr)
-      this.setNZFlag(this.a)
-      break
-    case OpType.STA:
-      this.write8(adr, this.a)
-      break
-
-    case OpType.LDX:
-      this.x = this.read8(adr)
-      this.setNZFlag(this.x)
-      break
-    case OpType.STX:
-      this.write8(adr, this.x)
-      break
-
-    case OpType.LDY:
-      this.y = this.read8(adr)
-      this.setNZFlag(this.y)
-      break
-    case OpType.STY:
-      this.write8(adr, this.y)
-      break
-
-    case OpType.TAX:
-      this.x = this.a
-      this.setNZFlag(this.x)
-      break
-    case OpType.TAY:
-      this.y = this.a
-      this.setNZFlag(this.y)
-      break
-    case OpType.TXA:
-      this.a = this.x
-      this.setNZFlag(this.a)
-      break
-    case OpType.TYA:
-      this.a = this.y
-      this.setNZFlag(this.a)
-      break
-    case OpType.TXS:
-      this.s = this.x
-      break
-    case OpType.TSX:
-      this.x = this.s
-      this.setNZFlag(this.x)
-      break
-
-    case OpType.ADC:
-      {
-        const carry = this.carry
-        const operand = this.read8(adr)
-        const result = this.a + operand + carry
-        const overflow = ((this.a ^ result) & (operand ^ result) & 0x80) !== 0
-        this.a = result & 0xff
-        this.setNZCFlag(this.a, result >= 0x0100)
-        this.setOverFlow(overflow)
-      }
-      break
-    case OpType.SBC:
-      // The 6502 overflow flag explained mathematically
-      // http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
-      {
-        const carry = this.carry
-        const operand = 255 - this.read8(adr)
-        const result = this.a + operand + carry
-        const overflow = ((this.a ^ result) & (operand ^ result) & 0x80) !== 0
-        this.a = result & 0xff
-        this.setNZCFlag(this.a, result >= 0x0100)
-        this.setOverFlow(overflow)
-      }
-      break
-
-    case OpType.INX:
-      this.x = (this.x + 1) & 0xff
-      this.setNZFlag(this.x)
-      break
-    case OpType.INY:
-      this.y = (this.y + 1) & 0xff
-      this.setNZFlag(this.y)
-      break
-    case OpType.INC:
-      {
-        const value = (this.read8(adr) + 1) & 0xff
-        this.write8(adr, value)
-        this.setNZFlag(value)
-      }
-      break
-
-    case OpType.DEX:
-      this.x = (this.x - 1) & 0xff
-      this.setNZFlag(this.x)
-      break
-    case OpType.DEY:
-      this.y = (this.y - 1) & 0xff
-      this.setNZFlag(this.y)
-      break
-    case OpType.DEC:
-      {
-        const value = (this.read8(adr) - 1) & 0xff
-        this.write8(adr, value)
-        this.setNZFlag(value)
-      }
-      break
-
-    case OpType.AND:
-      {
-        const value = this.read8(adr)
-        this.a &= value
+      default:
+        // case OpType.UNKNOWN:  // Unreachable here.
+        break
+      case OpType.NOP:
+        break
+      case OpType.LDA:
+        this.a = this.read8(adr)
         this.setNZFlag(this.a)
-      }
-      break
-    case OpType.ORA:
-      {
-        const value = this.read8(adr)
-        this.a |= value
+        break
+      case OpType.STA:
+        this.write8(adr, this.a)
+        break
+
+      case OpType.LDX:
+        this.x = this.read8(adr)
+        this.setNZFlag(this.x)
+        break
+      case OpType.STX:
+        this.write8(adr, this.x)
+        break
+
+      case OpType.LDY:
+        this.y = this.read8(adr)
+        this.setNZFlag(this.y)
+        break
+      case OpType.STY:
+        this.write8(adr, this.y)
+        break
+
+      case OpType.TAX:
+        this.x = this.a
+        this.setNZFlag(this.x)
+        break
+      case OpType.TAY:
+        this.y = this.a
+        this.setNZFlag(this.y)
+        break
+      case OpType.TXA:
+        this.a = this.x
         this.setNZFlag(this.a)
-      }
-      break
-    case OpType.EOR:
-      {
-        const value = this.read8(adr)
-        this.a ^= value
+        break
+      case OpType.TYA:
+        this.a = this.y
         this.setNZFlag(this.a)
-      }
-      break
-    case OpType.ROL:
-      {
-        const isAcc = inst.addressing === Addressing.ACCUMULATOR
-        const value = isAcc ? this.a : this.read8(adr)
-        const oldCarry = this.carry
-        const newCarry = value >= 0x80
-        const newValue = ((value << 1) | oldCarry) & 0xff
-        if (isAcc)
-          this.a = newValue
-        else
+        break
+      case OpType.TXS:
+        this.s = this.x
+        break
+      case OpType.TSX:
+        this.x = this.s
+        this.setNZFlag(this.x)
+        break
+
+      case OpType.ADC:
+        {
+          const carry = this.carry
+          const operand = this.read8(adr)
+          const result = this.a + operand + carry
+          const overflow = ((this.a ^ result) & (operand ^ result) & 0x80) !== 0
+          this.a = result & 0xff
+          this.setNZCFlag(this.a, result >= 0x0100)
+          this.setOverFlow(overflow)
+        }
+        break
+      case OpType.SBC:
+        // The 6502 overflow flag explained mathematically
+        // http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
+        {
+          const carry = this.carry
+          const operand = 255 - this.read8(adr)
+          const result = this.a + operand + carry
+          const overflow = ((this.a ^ result) & (operand ^ result) & 0x80) !== 0
+          this.a = result & 0xff
+          this.setNZCFlag(this.a, result >= 0x0100)
+          this.setOverFlow(overflow)
+        }
+        break
+
+      case OpType.INX:
+        this.x = (this.x + 1) & 0xff
+        this.setNZFlag(this.x)
+        break
+      case OpType.INY:
+        this.y = (this.y + 1) & 0xff
+        this.setNZFlag(this.y)
+        break
+      case OpType.INC:
+        {
+          const value = (this.read8(adr) + 1) & 0xff
+          this.write8(adr, value)
+          this.setNZFlag(value)
+        }
+        break
+
+      case OpType.DEX:
+        this.x = (this.x - 1) & 0xff
+        this.setNZFlag(this.x)
+        break
+      case OpType.DEY:
+        this.y = (this.y - 1) & 0xff
+        this.setNZFlag(this.y)
+        break
+      case OpType.DEC:
+        {
+          const value = (this.read8(adr) - 1) & 0xff
+          this.write8(adr, value)
+          this.setNZFlag(value)
+        }
+        break
+
+      case OpType.AND:
+        {
+          const value = this.read8(adr)
+          this.a &= value
+          this.setNZFlag(this.a)
+        }
+        break
+      case OpType.ORA:
+        {
+          const value = this.read8(adr)
+          this.a |= value
+          this.setNZFlag(this.a)
+        }
+        break
+      case OpType.EOR:
+        {
+          const value = this.read8(adr)
+          this.a ^= value
+          this.setNZFlag(this.a)
+        }
+        break
+      case OpType.ROL:
+        {
+          const isAcc = inst.addressing === Addressing.ACCUMULATOR
+          const value = isAcc ? this.a : this.read8(adr)
+          const oldCarry = this.carry
+          const newCarry = value >= 0x80
+          const newValue = ((value << 1) | oldCarry) & 0xff
+          if (isAcc) this.a = newValue
+          else this.write8(adr, newValue)
+          this.setNZCFlag(newValue, newCarry)
+        }
+        break
+      case OpType.ROR:
+        {
+          const isAcc = inst.addressing === Addressing.ACCUMULATOR
+          const value = isAcc ? this.a : this.read8(adr)
+          const oldCarry = this.carry
+          const newCarry = (value & 0x01) !== 0
+          const newValue = (value >> 1) | (oldCarry << 7)
+          if (isAcc) this.a = newValue
+          else this.write8(adr, newValue)
+          this.setNZCFlag(newValue, newCarry)
+        }
+        break
+      case OpType.ASL:
+        {
+          const isAcc = inst.addressing === Addressing.ACCUMULATOR
+          const value = isAcc ? this.a : this.read8(adr)
+          const newCarry = value >= 0x80
+          const newValue = (value << 1) & 0xff
+          if (isAcc) this.a = newValue
+          else this.write8(adr, newValue)
+          this.setNZCFlag(newValue, newCarry)
+        }
+        break
+      case OpType.LSR:
+        {
+          const isAcc = inst.addressing === Addressing.ACCUMULATOR
+          const value = isAcc ? this.a : this.read8(adr)
+          const newCarry = (value & 0x01) !== 0
+          const newValue = (value >> 1) & 0xff
+          if (isAcc) this.a = newValue
+          else this.write8(adr, newValue)
+          this.setNZCFlag(newValue, newCarry)
+        }
+        break
+      case OpType.BIT:
+        {
+          const value = this.read8(adr)
+          const result = this.a & value
+          this.zero = result === 0 ? 1 : 0
+
+          this.negative = bit(value, NEGATIVE_BIT)
+          this.overflow = bit(value, OVERFLOW_BIT)
+        }
+        break
+      case OpType.CMP:
+        {
+          const value = this.read8(adr)
+          const result = this.a - value
+          this.setNZCFlag(result & 255, result >= 0)
+        }
+        break
+      case OpType.CPX:
+        {
+          const value = this.read8(adr)
+          const result = this.x - value
+          this.setNZCFlag(result & 255, result >= 0)
+        }
+        break
+      case OpType.CPY:
+        {
+          const value = this.read8(adr)
+          const result = this.y - value
+          this.setNZCFlag(result & 255, result >= 0)
+        }
+        break
+
+      case OpType.JMP:
+        this.pc = adr
+        break
+      case OpType.JSR:
+        this.push16(this.pc - 1)
+        this.pc = adr
+        break
+      case OpType.RTS:
+        this.pc = this.pop16() + 1
+        break
+      case OpType.RTI:
+        this.setStatusReg(this.pop() | RESERVED_FLAG)
+        this.pc = this.pop16()
+        break
+
+      case OpType.BCC:
+        cycle += this.branch(adr, this.carry === 0)
+        break
+      case OpType.BCS:
+        cycle += this.branch(adr, this.carry !== 0)
+        break
+      case OpType.BPL:
+        cycle += this.branch(adr, this.negative === 0)
+        break
+      case OpType.BMI:
+        cycle += this.branch(adr, this.negative !== 0)
+        break
+      case OpType.BNE:
+        cycle += this.branch(adr, this.zero === 0)
+        break
+      case OpType.BEQ:
+        cycle += this.branch(adr, this.zero !== 0)
+        break
+      case OpType.BVC:
+        cycle += this.branch(adr, this.overflow === 0)
+        break
+      case OpType.BVS:
+        cycle += this.branch(adr, this.overflow !== 0)
+        break
+
+      case OpType.PHA:
+        this.push(this.a)
+        break
+      case OpType.PHP:
+        this.push(this.getStatusReg() | BREAK_FLAG)
+        break
+      case OpType.PLA:
+        this.a = this.pop()
+        this.setNZFlag(this.a)
+        break
+      case OpType.PLP:
+        this.setStatusReg(this.pop() | RESERVED_FLAG)
+        break
+
+      case OpType.CLC:
+        this.carry = 0
+        break
+      case OpType.SEC:
+        this.carry = 1
+        break
+
+      case OpType.SEI:
+        this.irqBlocked = 1
+        break
+      case OpType.CLI:
+        this.irqBlocked = 0
+        break
+      case OpType.CLV:
+        this.overflow = 0
+        break
+      case OpType.SED:
+        // SED: normal to BCD mode
+        // not implemented on NES
+        this.decimal = 1
+        break
+      case OpType.CLD:
+        // CLD: BCD to normal mode
+        // not implemented on NES
+        this.decimal = 0
+        break
+
+      case OpType.BRK:
+        this.push16(this.pc + 1)
+        this.push(this.getStatusReg() | BREAK_FLAG)
+        this.pc = this.read16(VEC_IRQ)
+        this.irqBlocked = 1
+        break
+
+      // Unofficial
+
+      case OpType.LAX:
+        this.a = this.x = this.read8(adr)
+        this.setNZFlag(this.a)
+        break
+
+      case OpType.SAX:
+        this.write8(adr, this.a & this.x)
+        break
+
+      case OpType.ISB:
+        {
+          const value = (this.read8(adr) + 1) & 0xff
+          this.write8(adr, value)
+
+          const carry = this.carry
+          const operand = 255 - value
+          const result = this.a + operand + carry
+          const overflow = ((this.a ^ result) & (operand ^ result) & 0x80) !== 0
+          this.a = result & 0xff
+          this.setNZCFlag(this.a, result >= 0x0100)
+          this.setOverFlow(overflow)
+        }
+        break
+
+      case OpType.DCP:
+        {
+          // DEC
+          const value = (this.read8(adr) - 1) & 0xff
+          this.write8(adr, value)
+
+          // CMP
+          const result = this.a - value
+          this.setNZCFlag(result & 255, result >= 0)
+        }
+        break
+
+      case OpType.RLA:
+        {
+          // ROL
+          const value = this.read8(adr)
+          const oldCarry = this.carry
+          const newCarry = value >= 0x80
+          const newValue = ((value << 1) | oldCarry) & 0xff
           this.write8(adr, newValue)
-        this.setNZCFlag(newValue, newCarry)
-      }
-      break
-    case OpType.ROR:
-      {
-        const isAcc = inst.addressing === Addressing.ACCUMULATOR
-        const value = isAcc ? this.a : this.read8(adr)
-        const oldCarry = this.carry
-        const newCarry = (value & 0x01) !== 0
-        const newValue = (value >> 1) | (oldCarry << 7)
-        if (isAcc)
-          this.a = newValue
-        else
+
+          // AND
+          this.a &= newValue
+          this.setNZCFlag(this.a, newCarry)
+        }
+        break
+
+      case OpType.RRA:
+        {
+          // ROR
+          const value = this.read8(adr)
+          const oldCarry = this.carry
+          const newCarry = (value & 0x01) !== 0
+          const newValue = (value >> 1) | (oldCarry << 7)
           this.write8(adr, newValue)
-        this.setNZCFlag(newValue, newCarry)
-      }
-      break
-    case OpType.ASL:
-      {
-        const isAcc = inst.addressing === Addressing.ACCUMULATOR
-        const value = isAcc ? this.a : this.read8(adr)
-        const newCarry = value >= 0x80
-        const newValue = (value << 1) & 0xff
-        if (isAcc)
-          this.a = newValue
-        else
+
+          // ADC
+          const carry = newCarry ? 1 : 0
+          const operand = newValue
+          const result = this.a + operand + carry
+          const overflow = ((this.a ^ result) & (operand ^ result) & 0x80) !== 0
+          this.a = result & 0xff
+          this.setNZCFlag(this.a, result >= 0x0100)
+          this.setOverFlow(overflow)
+        }
+        break
+
+      case OpType.SLO:
+        {
+          // ASL
+          const value = /*isAcc ? this.a :*/ this.read8(adr)
+          const newCarry = value >= 0x80
+          const newValue = (value << 1) & 0xff
           this.write8(adr, newValue)
-        this.setNZCFlag(newValue, newCarry)
-      }
-      break
-    case OpType.LSR:
-      {
-        const isAcc = inst.addressing === Addressing.ACCUMULATOR
-        const value = isAcc ? this.a : this.read8(adr)
-        const newCarry = (value & 0x01) !== 0
-        const newValue = (value >> 1) & 0xff
-        if (isAcc)
-          this.a = newValue
-        else
+
+          // ORA
+          this.a |= newValue
+          this.setNZCFlag(this.a, newCarry)
+        }
+        break
+
+      case OpType.SRE:
+        {
+          // LSR
+          const value = this.read8(adr)
+          const newCarry = (value & 0x01) !== 0
+          const newValue = (value >> 1) & 0xff
           this.write8(adr, newValue)
-        this.setNZCFlag(newValue, newCarry)
-      }
-      break
-    case OpType.BIT:
-      {
-        const value = this.read8(adr)
-        const result = this.a & value
-        this.zero = result === 0 ? 1 : 0
 
-        this.negative = bit(value, NEGATIVE_BIT)
-        this.overflow = bit(value, OVERFLOW_BIT)
-      }
-      break
-    case OpType.CMP:
-      {
-        const value = this.read8(adr)
-        const result = this.a - value
-        this.setNZCFlag(result & 255, result >= 0)
-      }
-      break
-    case OpType.CPX:
-      {
-        const value = this.read8(adr)
-        const result = this.x - value
-        this.setNZCFlag(result & 255, result >= 0)
-      }
-      break
-    case OpType.CPY:
-      {
-        const value = this.read8(adr)
-        const result = this.y - value
-        this.setNZCFlag(result & 255, result >= 0)
-      }
-      break
-
-    case OpType.JMP:
-      this.pc = adr
-      break
-    case OpType.JSR:
-      this.push16(this.pc - 1)
-      this.pc = adr
-      break
-    case OpType.RTS:
-      this.pc = this.pop16() + 1
-      break
-    case OpType.RTI:
-      this.setStatusReg(this.pop() | RESERVED_FLAG)
-      this.pc = this.pop16()
-      break
-
-    case OpType.BCC:
-      cycle += this.branch(adr, this.carry === 0)
-      break
-    case OpType.BCS:
-      cycle += this.branch(adr, this.carry !== 0)
-      break
-    case OpType.BPL:
-      cycle += this.branch(adr, this.negative === 0)
-      break
-    case OpType.BMI:
-      cycle += this.branch(adr, this.negative !== 0)
-      break
-    case OpType.BNE:
-      cycle += this.branch(adr, this.zero === 0)
-      break
-    case OpType.BEQ:
-      cycle += this.branch(adr, this.zero !== 0)
-      break
-    case OpType.BVC:
-      cycle += this.branch(adr, this.overflow === 0)
-      break
-    case OpType.BVS:
-      cycle += this.branch(adr, this.overflow !== 0)
-      break
-
-    case OpType.PHA:
-      this.push(this.a)
-      break
-    case OpType.PHP:
-      this.push(this.getStatusReg() | BREAK_FLAG)
-      break
-    case OpType.PLA:
-      this.a = this.pop()
-      this.setNZFlag(this.a)
-      break
-    case OpType.PLP:
-      this.setStatusReg(this.pop() | RESERVED_FLAG)
-      break
-
-    case OpType.CLC:
-      this.carry = 0
-      break
-    case OpType.SEC:
-      this.carry = 1
-      break
-
-    case OpType.SEI:
-      this.irqBlocked = 1
-      break
-    case OpType.CLI:
-      this.irqBlocked = 0
-      break
-    case OpType.CLV:
-      this.overflow = 0
-      break
-    case OpType.SED:
-      // SED: normal to BCD mode
-      // not implemented on NES
-      this.decimal = 1
-      break
-    case OpType.CLD:
-      // CLD: BCD to normal mode
-      // not implemented on NES
-      this.decimal = 0
-      break
-
-    case OpType.BRK:
-      this.push16(this.pc + 1)
-      this.push(this.getStatusReg() | BREAK_FLAG)
-      this.pc = this.read16(VEC_IRQ)
-      this.irqBlocked = 1
-      break
-
-    // Unofficial
-
-    case OpType.LAX:
-      this.a = this.x = this.read8(adr)
-      this.setNZFlag(this.a)
-      break
-
-    case OpType.SAX:
-      this.write8(adr, this.a & this.x)
-      break
-
-    case OpType.ISB:
-      {
-        const value = (this.read8(adr) + 1) & 0xff
-        this.write8(adr, value)
-
-        const carry = this.carry
-        const operand = 255 - value
-        const result = this.a + operand + carry
-        const overflow = ((this.a ^ result) & (operand ^ result) & 0x80) !== 0
-        this.a = result & 0xff
-        this.setNZCFlag(this.a, result >= 0x0100)
-        this.setOverFlow(overflow)
-      }
-      break
-
-    case OpType.DCP:
-      {
-        // DEC
-        const value = (this.read8(adr) - 1) & 0xff
-        this.write8(adr, value)
-
-        // CMP
-        const result = this.a - value
-        this.setNZCFlag(result & 255, result >= 0)
-      }
-      break
-
-    case OpType.RLA:
-      {
-        // ROL
-        const value = this.read8(adr)
-        const oldCarry = this.carry
-        const newCarry = value >= 0x80
-        const newValue = ((value << 1) | oldCarry) & 0xff
-        this.write8(adr, newValue)
-
-        // AND
-        this.a &= newValue
-        this.setNZCFlag(this.a, newCarry)
-      }
-      break
-
-    case OpType.RRA:
-      {
-        // ROR
-        const value = this.read8(adr)
-        const oldCarry = this.carry
-        const newCarry = (value & 0x01) !== 0
-        const newValue = (value >> 1) | (oldCarry << 7)
-        this.write8(adr, newValue)
-
-        // ADC
-        const carry = newCarry ? 1 : 0
-        const operand = newValue
-        const result = this.a + operand + carry
-        const overflow = ((this.a ^ result) & (operand ^ result) & 0x80) !== 0
-        this.a = result & 0xff
-        this.setNZCFlag(this.a, result >= 0x0100)
-        this.setOverFlow(overflow)
-      }
-      break
-
-    case OpType.SLO:
-      {
-        // ASL
-        const value = /*isAcc ? this.a :*/ this.read8(adr)
-        const newCarry = value >= 0x80
-        const newValue = (value << 1) & 0xff
-        this.write8(adr, newValue)
-
-        // ORA
-        this.a |= newValue
-        this.setNZCFlag(this.a, newCarry)
-      }
-      break
-
-    case OpType.SRE:
-      {
-        // LSR
-        const value = this.read8(adr)
-        const newCarry = (value & 0x01) !== 0
-        const newValue = (value >> 1) & 0xff
-        this.write8(adr, newValue)
-
-        // EOR
-        this.a ^= newValue
-        this.setNZCFlag(this.a, newCarry)
-      }
-      break
+          // EOR
+          this.a ^= newValue
+          this.setNZCFlag(this.a, newCarry)
+        }
+        break
     }
     // ========================================================
 
@@ -675,14 +665,16 @@ export class Cpu {
   }
 
   private getStatusReg(): Byte {
-    return ((this.negative << NEGATIVE_BIT) |
-            (this.overflow << OVERFLOW_BIT) |
-            (this.reservedFlag << RESERVED_BIT) |
-            (this.breakmode << BREAK_BIT) |
-            (this.decimal << DECIMAL_BIT) |
-            (this.irqBlocked << IRQBLK_BIT) |
-            (this.zero << ZERO_BIT) |
-            (this.carry << CARRY_BIT))
+    return (
+      (this.negative << NEGATIVE_BIT) |
+      (this.overflow << OVERFLOW_BIT) |
+      (this.reservedFlag << RESERVED_BIT) |
+      (this.breakmode << BREAK_BIT) |
+      (this.decimal << DECIMAL_BIT) |
+      (this.irqBlocked << IRQBLK_BIT) |
+      (this.zero << ZERO_BIT) |
+      (this.carry << CARRY_BIT)
+    )
   }
 
   private setStatusReg(p: Byte): void {
@@ -701,7 +693,8 @@ export class Cpu {
     if (this.watchRead.has(adr)) {
       this.paused = true
       console.warn(
-        `Break because watched point read: adr=${Util.hex(adr, 4)}, value=${Util.hex(value, 2)}`)
+        `Break because watched point read: adr=${Util.hex(adr, 4)}, value=${Util.hex(value, 2)}`,
+      )
     }
     return value
   }
@@ -723,7 +716,8 @@ export class Cpu {
     if (this.watchWrite.has(adr)) {
       this.paused = true
       console.warn(
-        `Break because watched point write: adr=${Util.hex(adr, 4)}, value=${Util.hex(value, 2)}`)
+        `Break because watched point write: adr=${Util.hex(adr, 4)}, value=${Util.hex(value, 2)}`,
+      )
     }
   }
 
@@ -773,8 +767,7 @@ export class Cpu {
   }
 
   private branch(adr: Address, cond: boolean): number {
-    if (!cond)
-      return 0
+    if (!cond) return 0
     const pc = this.pc
     const offset = this.read8(adr)
     const newPc = (pc + (offset < 0x80 ? offset : offset - 0x100)) & 0xffff

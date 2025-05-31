@@ -1,16 +1,14 @@
 export class DomUtil {
   public static clearCanvas(canvas: HTMLCanvasElement): void {
     const context = canvas.getContext('2d')
-    if (context == null)
-      return
+    if (context == null) return
     context.strokeStyle = ''
     context.fillStyle = `rgb(64,64,64)`
     context.fillRect(0, 0, canvas.width, canvas.height)
   }
 
   public static removeAllChildren(element: HTMLElement): void {
-    for (const child of element.childNodes)
-      element.removeChild(child)
+    for (const child of element.childNodes) element.removeChild(child)
   }
 
   public static setStyles(elem: HTMLElement, styles: Record<string, unknown>): void {
@@ -20,23 +18,22 @@ export class DomUtil {
   public static loadFile(file: File): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
-      reader.onload = function(e) {
+      reader.onload = function (e) {
         const target = e.target as FileReader
-        if (target.result)
-          resolve(new Uint8Array(target.result as ArrayBuffer))
-        else
-          reject()
+        if (target.result) resolve(new Uint8Array(target.result as ArrayBuffer))
+        else reject()
       }
-      reader.onerror = function(_e) {
+      reader.onerror = function (_e) {
         reject(reader.error)
       }
       reader.readAsArrayBuffer(file)
     })
   }
 
-  public static handleFileDrop(dropZone: HTMLElement,
-                               onDropped: (files: FileList, x: number, y: number) => void): void
-  {
+  public static handleFileDrop(
+    dropZone: HTMLElement,
+    onDropped: (files: FileList, x: number, y: number) => void,
+  ): void {
     function onDrop(event: DragEvent): boolean {
       if (event.dataTransfer) {
         event.stopPropagation()
@@ -64,8 +61,7 @@ export class DomUtil {
 
   public static getCanvasContext2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
     const context = canvas.getContext('2d')
-    if (context == null)
-      throw new Error('2d context not supported or canvas already initialized')
+    if (context == null) throw new Error('2d context not supported or canvas already initialized')
     return context
   }
 
@@ -73,16 +69,24 @@ export class DomUtil {
     return new Promise<void>(resolve => setTimeout(resolve, millisec))
   }
 
-  public static async downloadOrSaveToFile(data: any, filename: string, description: string, mimeType: string, extension: string): Promise<FileSystemFileHandle|null> {
+  public static async downloadOrSaveToFile(
+    data: any,
+    filename: string,
+    description: string,
+    mimeType: string,
+    extension: string,
+  ): Promise<FileSystemFileHandle | null> {
     if (window.showSaveFilePicker != null) {
       const accept: Record<string, any> = {}
       accept[mimeType] = [extension]
       const kFilePickerOption = {
         suggestedName: filename,
-        types: [{
-          description,
-          accept,
-        }],
+        types: [
+          {
+            description,
+            accept,
+          },
+        ],
       }
       const fileHandle = await window.showSaveFilePicker(kFilePickerOption)
       const writable = await fileHandle.createWritable()
@@ -100,15 +104,21 @@ export class DomUtil {
     }
   }
 
-  public static async pickOpenFile(extension: string, description: string, mimeType: string): Promise<{file: File; fileHandle?: FileSystemFileHandle} | null> {
+  public static async pickOpenFile(
+    extension: string,
+    description: string,
+    mimeType: string,
+  ): Promise<{file: File; fileHandle?: FileSystemFileHandle} | null> {
     if (window.showOpenFilePicker != null || false) {
       const accept: Record<string, string> = {}
       accept[mimeType] = extension
       const option = {
-        types: [{
-          description,
-          accept,
-        }],
+        types: [
+          {
+            description,
+            accept,
+          },
+        ],
       }
       const [fileHandle] = await window.showOpenFilePicker(option)
       const file = await fileHandle.getFile()
@@ -118,9 +128,8 @@ export class DomUtil {
         const input = document.createElement('input')
         input.type = 'file'
         input.accept = `${extension}, ${mimeType}`
-        input.onchange = async (_event) => {
-          if (!input.value)
-            return
+        input.onchange = async _event => {
+          if (!input.value) return
           const fileList = input.files
           if (fileList) {
             const file = fileList[0]
@@ -159,16 +168,17 @@ export class DomUtil {
       }
     }
 
-    const mouseUpDelegate = ($event: MouseEvent|TouchEvent) => {
-      if (mouseUp)
-        mouseUp($event)
+    const mouseUpDelegate = ($event: MouseEvent | TouchEvent) => {
+      if (mouseUp) mouseUp($event)
       unlisten()
     }
 
-    const mouseLeaveDelegate = (mouseLeave == null ? null : ($event: MouseEvent) => {
-      if (mouseLeave && mouseLeave($event))
-        unlisten()
-    })
+    const mouseLeaveDelegate =
+      mouseLeave == null
+        ? null
+        : ($event: MouseEvent) => {
+            if (mouseLeave && mouseLeave($event)) unlisten()
+          }
 
     document.addEventListener('mousemove', mouseMove, useCapture)
     document.addEventListener('mouseup', mouseUpDelegate, useCapture)
@@ -179,7 +189,7 @@ export class DomUtil {
     }
   }
 
-  public static getMousePosIn(event: MouseEvent|TouchEvent, elem: HTMLElement): [number, number] {
+  public static getMousePosIn(event: MouseEvent | TouchEvent, elem: HTMLElement): [number, number] {
     let pageX: number
     let pageY: number
     if ((event as TouchEvent).changedTouches != null) {
@@ -195,7 +205,6 @@ export class DomUtil {
     const rect = elem.getBoundingClientRect()
     const scrollLeft = document.body.scrollLeft
     const scrollTop = document.body.scrollTop
-    return [pageX - rect.left - scrollLeft,
-            pageY - rect.top - scrollTop]
+    return [pageX - rect.left - scrollLeft, pageY - rect.top - scrollTop]
   }
 }

@@ -20,8 +20,8 @@ import {Mapper087} from './mapper087'
 import {Mapper075} from './mapper075'
 import {Mapper184} from './mapper184'
 
-export const kMapperTable: Record<number, (options: MapperOptions) => Mapper> =
-{  // Mapper
+export const kMapperTable: Record<number, (options: MapperOptions) => Mapper> = {
+  // Mapper
   0: Mapper000.create,
   1: Mapper001.create,
   2: Mapper002.create,
@@ -41,11 +41,11 @@ export const kMapperTable: Record<number, (options: MapperOptions) => Mapper> =
   33: Mapper033.create,
   66: Mapper066.create,
   69: Mapper069.create,
-  73: Mapper073.create,  // INES Mapper 073: Konami VRC3
+  73: Mapper073.create, // INES Mapper 073: Konami VRC3
   75: Mapper075.create,
   87: Mapper087.create,
   88: Mapper088.create,
-  93: Mapper093.create,  // INES Mapper 093: Sunsoft-2 IC
+  93: Mapper093.create, // INES Mapper 093: Sunsoft-2 IC
   95: Mapper095.create,
   118: Mapper118.create,
   184: Mapper184.create,

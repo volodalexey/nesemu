@@ -22,7 +22,7 @@ export class NoiseSampler {
   private volume = 0
   private period = -1
   private timer = 0
-  private bits = 0x0001  // 15bits
+  private bits = 0x0001 // 15bits
 
   private rate = 0
   private fixed = 0
@@ -31,13 +31,12 @@ export class NoiseSampler {
   constructor(sampleRate: number) {
     const g = gcd(APU_NOISE_HZ, sampleRate)
     const multiplier = Math.min(sampleRate / g, 0x7fff) | 0
-    this.rate = (APU_NOISE_HZ * multiplier / sampleRate) | 0
+    this.rate = ((APU_NOISE_HZ * multiplier) / sampleRate) | 0
     this.fixed = multiplier | 0
   }
 
   public setEnable(enable: boolean): void {
-    if (!enable)
-      this.volume = 0
+    if (!enable) this.volume = 0
   }
 
   public setVolume(volume: number): void {
@@ -69,7 +68,7 @@ export class NoiseSampler {
       if (timer < 0) {
         do {
           const x = ((bits ^ (bits >> shift)) & 1) | 0
-          bits = ((bits >> 1) | (x << 14)) | 0
+          bits = (bits >> 1) | (x << 14) | 0
           timer += period
         } while (timer < 0)
         v = (1 - (bits & 1)) * volume

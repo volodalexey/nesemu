@@ -19,8 +19,7 @@ export class Mapper007 extends Mapper {
     // PRG ROM bank
     this.options.setWriteMemory(0x8000, 0xffff, (_adr, value) => {
       const bank = value << 2
-      for (let i = 0; i < 4; ++i)
-        this.options.setPrgBank(i, bank + i)
+      for (let i = 0; i < 4; ++i) this.options.setPrgBank(i, bank + i)
 
       const namePage = (value >> 4) & 1
       this.options.setMirrorMode(kMirrorTable[namePage])

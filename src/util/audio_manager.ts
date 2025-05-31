@@ -1,7 +1,7 @@
-import {WaveType} from '../nes/apu'
 import {SoundChannel, PulseChannel, TriangleChannel, SawtoothChannel} from './audio/sound_channel'
 import {IDmcChannel, INoiseChannel} from './audio/sound_channel'
 import {ICartridge} from '../nes/cartridge'
+import {WaveType} from '../nes/apu/apu.constants'
 
 const GLOBAL_MASTER_VOLUME = 0.5
 
@@ -16,31 +16,27 @@ export abstract class AudioManager {
   protected dmcChannelIndex = -1
   protected cartridge: ICartridge
 
-  public static setUp(audioContextClass: any): void {
-    if (AudioManager.initialized)
-      return
+  public static setUp(): void {
+    if (AudioManager.initialized) return
 
-    if (audioContextClass == null)
-      return
-    AudioManager.audioContextClass = audioContextClass
     AudioManager.initialized = true
   }
 
   public static enableAudio(): void {
-    if (AudioManager.context != null)
-      return
-    const audioContextClass: any = AudioManager.audioContextClass
-    if (audioContextClass != null) {
-      const context = new audioContextClass() as AudioContext
-      AudioManager.context = context
-      AudioManager.masterGainNode = context.createGain()
-      AudioManager.masterGainNode.gain.setValueAtTime(
-        AudioManager.masterVolume * GLOBAL_MASTER_VOLUME, context.currentTime)
-      AudioManager.masterGainNode.connect(context.destination)
-    }
+    if (AudioManager.context != null) return
+    const context = new AudioContext()
+    AudioManager.context = context
+    AudioManager.masterGainNode = context.createGain()
+    AudioManager.masterGainNode.gain.setValueAtTime(
+      AudioManager.masterVolume * GLOBAL_MASTER_VOLUME,
+      context.currentTime,
+    )
+    AudioManager.masterGainNode.connect(context.destination)
   }
 
-  public static getContext(): AudioContext|undefined { return this.context }
+  public static getContext(): AudioContext | undefined {
+    return this.context
+  }
 
   public static setMasterVolume(volume: number): void {
     AudioManager.checkSetUpCalled()
@@ -48,7 +44,10 @@ export abstract class AudioManager {
 
     const context = AudioManager.context
     if (context)
-      AudioManager.masterGainNode.gain.setValueAtTime(volume * GLOBAL_MASTER_VOLUME, context.currentTime)
+      AudioManager.masterGainNode.gain.setValueAtTime(
+        volume * GLOBAL_MASTER_VOLUME,
+        context.currentTime,
+      )
   }
 
   private static checkSetUpCalled(): void {
@@ -84,36 +83,34 @@ export abstract class AudioManager {
 
   public addChannel(type: WaveType): void {
     const context = AudioManager.context
-    if (context == null)
-      return
+    if (context == null) return
 
     let sc: SoundChannel
 
     const destination = AudioManager.masterGainNode
     switch (type) {
-    case WaveType.PULSE:
-      sc = new PulseChannel(context, destination)
-      break
-    case WaveType.TRIANGLE:
-      sc = new TriangleChannel(context, destination)
-      break
-    case WaveType.NOISE:
-      sc = this.createNoiseChannel(context, destination)
-      break
-    case WaveType.SAWTOOTH:
-      sc = new SawtoothChannel(context, destination)
-      break
-    case WaveType.DMC:
-      {
-        this.dmcChannelIndex = this.channels.length
+      case WaveType.PULSE:
+        sc = new PulseChannel(context, destination)
+        break
+      case WaveType.TRIANGLE:
+        sc = new TriangleChannel(context, destination)
+        break
+      case WaveType.NOISE:
+        sc = this.createNoiseChannel(context, destination)
+        break
+      case WaveType.SAWTOOTH:
+        sc = new SawtoothChannel(context, destination)
+        break
+      case WaveType.DMC:
+        {
+          this.dmcChannelIndex = this.channels.length
 
-        const dmc = this.createDmcChannel(context, destination)
-        sc = dmc
+          const dmc = this.createDmcChannel(context, destination)
+          sc = dmc
 
-        if (this.cartridge != null)
-          dmc.setCartridge(this.cartridge)
-      }
-      break
+          if (this.cartridge != null) dmc.setCartridge(this.cartridge)
+        }
+        break
     }
 
     sc.start()
@@ -121,40 +118,34 @@ export abstract class AudioManager {
   }
 
   public setChannelEnable(channel: number, enable: boolean): void {
-    if (AudioManager.context == null)
-      return
+    if (AudioManager.context == null) return
     this.channels[channel].setEnable(enable)
   }
 
   public setChannelFrequency(channel: number, frequency: number): void {
-    if (AudioManager.context == null)
-      return
+    if (AudioManager.context == null) return
 
     frequency = Math.min(frequency, AudioManager.context.sampleRate * 0.5)
     this.channels[channel].setFrequency(frequency)
   }
 
   public setChannelVolume(channel: number, volume: number): void {
-    if (AudioManager.context == null)
-      return
+    if (AudioManager.context == null) return
     this.channels[channel].setVolume(volume)
   }
 
   public setChannelDutyRatio(channel: number, dutyRatio: number): void {
-    if (AudioManager.context == null)
-      return
-    (this.channels[channel] as PulseChannel).setDutyRatio(dutyRatio)
+    if (AudioManager.context == null) return
+    ;(this.channels[channel] as PulseChannel).setDutyRatio(dutyRatio)
   }
 
   public setChannelPeriod(channel: number, period: number, mode: number): void {
-    if (AudioManager.context == null)
-      return
-    (this.channels[channel] as INoiseChannel).setNoisePeriod(period, mode)
+    if (AudioManager.context == null) return
+    ;(this.channels[channel] as INoiseChannel).setNoisePeriod(period, mode)
   }
 
   public setChannelDmcWrite(channel: number, buf: ReadonlyArray<number>): void {
-    if (AudioManager.context == null)
-      return
+    if (AudioManager.context == null) return
     const dmc = this.channels[channel] as IDmcChannel
     for (let i = 0; i < buf.length; ++i) {
       const d = buf[i]
@@ -166,13 +157,11 @@ export abstract class AudioManager {
 
   public muteAll(): void {
     const n = this.channels.length
-    for (let ch = 0; ch < n; ++ch)
-      this.setChannelVolume(ch, 0)
+    for (let ch = 0; ch < n; ++ch) this.setChannelVolume(ch, 0)
   }
 
   public onPrgBankChange(bank: number, page: number) {
-    if (this.dmcChannelIndex < 0)
-      return
+    if (this.dmcChannelIndex < 0) return
     const dmc = this.channels[this.dmcChannelIndex] as IDmcChannel
     dmc.changePrgBank(bank, page)
   }

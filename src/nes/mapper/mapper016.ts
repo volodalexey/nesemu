@@ -5,12 +5,7 @@ import {Mapper, MapperOptions} from './mapper'
 import {MirrorMode} from '../ppu/types'
 import {Util} from '../../util/util'
 
-const kMirrorTable = [
-  MirrorMode.VERT,
-  MirrorMode.HORZ,
-  MirrorMode.SINGLE0,
-  MirrorMode.SINGLE1,
-]
+const kMirrorTable = [MirrorMode.VERT, MirrorMode.HORZ, MirrorMode.SINGLE0, MirrorMode.SINGLE1]
 
 export class Mapper016 extends Mapper {
   private prgBank = 0
@@ -39,30 +34,38 @@ export class Mapper016 extends Mapper {
       const a = adr & 0x0f
       switch (a) {
         // CHR-ROM bank select.
-      case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7:
-        this.chrBank[a] = value
-        this.setChrBank(a, value)
-        break
-      case 8:  // PRG-ROM bank select.
-        this.prgBank = value & (count - 1)
-        this.setPrgBank(this.prgBank)
-        break
-      case 9:  // Nametable mirroring type select.
-        this.options.setMirrorMode(kMirrorTable[value & 3])
-        break
-      case 0x0a:  // IRQ Control.
-        this.irqEnable = (value & 1) !== 0
-        break
-      case 0x0b: case 0x0c:  // IRQ latch/counter.
-        {
-          const shift = (a - 0x0b) * 8
-          this.irqValue = (this.irqValue & (0xff00 >> shift)) | (value << shift)
-          this.irqCounter = this.irqValue
-        }
-        break
-      default:
-        console.log(`Write ${Util.hex(adr, 4)}, ${Util.hex(value, 2)}`)
-        break
+        case 0:
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+          this.chrBank[a] = value
+          this.setChrBank(a, value)
+          break
+        case 8: // PRG-ROM bank select.
+          this.prgBank = value & (count - 1)
+          this.setPrgBank(this.prgBank)
+          break
+        case 9: // Nametable mirroring type select.
+          this.options.setMirrorMode(kMirrorTable[value & 3])
+          break
+        case 0x0a: // IRQ Control.
+          this.irqEnable = (value & 1) !== 0
+          break
+        case 0x0b:
+        case 0x0c: // IRQ latch/counter.
+          {
+            const shift = (a - 0x0b) * 8
+            this.irqValue = (this.irqValue & (0xff00 >> shift)) | (value << shift)
+            this.irqCounter = this.irqValue
+          }
+          break
+        default:
+          console.log(`Write ${Util.hex(adr, 4)}, ${Util.hex(value, 2)}`)
+          break
       }
     })
   }
@@ -91,8 +94,7 @@ export class Mapper016 extends Mapper {
     this.irqCounter = saveData.irqCounter
 
     this.setPrgBank(this.prgBank)
-    for (let i = 0; i < this.chrBank.length; ++i)
-      this.setChrBank(i, this.chrBank[i])
+    for (let i = 0; i < this.chrBank.length; ++i) this.setChrBank(i, this.chrBank[i])
   }
 
   public onHblank(_hcount: number): void {

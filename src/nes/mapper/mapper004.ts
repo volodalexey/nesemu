@@ -21,7 +21,7 @@ export class Mapper004 extends Mapper {
   constructor(options: MapperOptions) {
     super(options, 0x2000)
 
-    const BANK_BIT = 13  // 0x2000
+    const BANK_BIT = 13 // 0x2000
     this.maxPrg = (options.cartridge!.prgRom.byteLength >> BANK_BIT) - 1
 
     this.options.setPrgBank(3, this.maxPrg)
@@ -35,10 +35,10 @@ export class Mapper004 extends Mapper {
       } else {
         const reg = this.bankSelect & 0x07
         this.regs[reg] = value
-        if (reg < 6)  // CHR
-          this.setChrBank(this.bankSelect)
-        else  // PRG
-          this.setPrgBank(this.bankSelect)
+        if (reg < 6)
+          // CHR
+          this.setChrBank(this.bankSelect) // PRG
+        else this.setPrgBank(this.bankSelect)
       }
     })
 
@@ -69,7 +69,7 @@ export class Mapper004 extends Mapper {
       }
     })
 
-    this.setPrgBank(this.bankSelect)  // Initial
+    this.setPrgBank(this.bankSelect) // Initial
 
     // http://wiki.nesdev.com/w/index.php/INES#Flags_6
     // iNes header, flags 6
@@ -79,18 +79,18 @@ export class Mapper004 extends Mapper {
     // Dirty hack: detect mirror mode from ROM hash.
     const romHash = this.options.cartridge!.calcHashValue()
     switch (romHash) {
-    case '6c0cd447297e95e45db35a4373dbeae1':  // Babel no Tou
-    case 'e791b12fc3419a2e2f8a5ed64b210d72':  // Dragon Spirit
-    case '44c206c61ff37406815f21b922e105c7':  // Family Pinball
-    case '98b3778d1e6045d2a3350eb7eb3b39fc':  // Genpei Touma Den
-    case '1e377977f7e8c067dd7181271a467959':  // Valkyrie no Bouken
-    case '002f464f224ccbed94427686815ab68b':  // Sanma no Mei Tantei
-      mirror = MirrorMode.HORZ
-      break
-    default:
-      break
+      case '6c0cd447297e95e45db35a4373dbeae1': // Babel no Tou
+      case 'e791b12fc3419a2e2f8a5ed64b210d72': // Dragon Spirit
+      case '44c206c61ff37406815f21b922e105c7': // Family Pinball
+      case '98b3778d1e6045d2a3350eb7eb3b39fc': // Genpei Touma Den
+      case '1e377977f7e8c067dd7181271a467959': // Valkyrie no Bouken
+      case '002f464f224ccbed94427686815ab68b': // Sanma no Mei Tantei
+        mirror = MirrorMode.HORZ
+        break
+      default:
+        break
     }
-    this.options.setMirrorMode(mirror)  // Default vertical mirroring?
+    this.options.setMirrorMode(mirror) // Default vertical mirroring?
   }
 
   public reset(): void {
@@ -134,11 +134,11 @@ export class Mapper004 extends Mapper {
     }
 
     switch (hcount) {
-    case 0:
-      this.irqHlineCounter = this.irqHlineValue
-      break
-    default:
-      break
+      case 0:
+        this.irqHlineCounter = this.irqHlineValue
+        break
+      default:
+        break
     }
   }
 
@@ -206,13 +206,14 @@ export class Mapper088 extends Mapper004 {
         this.setChrBank(this.bankSelect)
       } else {
         const reg = this.bankSelect & 0x07
-        if (reg < 6) {  // CHR
+        if (reg < 6) {
+          // CHR
           value &= 0x3f
-          if (reg >= 2)
-            value |= 0x40
+          if (reg >= 2) value |= 0x40
           this.regs[reg] = value
           this.setChrBank(this.bankSelect)
-        } else {  // PRG
+        } else {
+          // PRG
           this.regs[reg] = value
           this.setPrgBank(this.bankSelect)
         }
@@ -222,8 +223,10 @@ export class Mapper088 extends Mapper004 {
 }
 
 const kMirrorModeTable95 = [
-  MirrorMode.SINGLE0, MirrorMode.REVERSE_HORZ,
-  MirrorMode.HORZ, MirrorMode.SINGLE1,
+  MirrorMode.SINGLE0,
+  MirrorMode.REVERSE_HORZ,
+  MirrorMode.HORZ,
+  MirrorMode.SINGLE1,
 ]
 
 export class Mapper095 extends Mapper004 {
@@ -240,7 +243,8 @@ export class Mapper095 extends Mapper004 {
         this.bankSelect = value & 7
       } else {
         const reg = this.bankSelect & 0x07
-        if (reg < 6) {  // CHR
+        if (reg < 6) {
+          // CHR
           this.regs[reg] = value & 0x3f
           this.setChrBank(0x00)
 
@@ -249,7 +253,8 @@ export class Mapper095 extends Mapper004 {
             const n2 = (this.regs[1] >> 4) & 2
             this.options.setMirrorMode(kMirrorModeTable95[n2 | n1])
           }
-        } else {  // PRG
+        } else {
+          // PRG
           this.regs[reg] = value & 0x1f
           this.setPrgBank(0x00)
         }
@@ -275,17 +280,18 @@ export class Mapper118 extends Mapper004 {
       } else {
         const reg = this.bankSelect & 0x07
         this.regs[reg] = value & 0x7f
-        if (reg < 6) {  // CHR
+        if (reg < 6) {
+          // CHR
           this.setChrBank(this.bankSelect)
-        } else {  // PRG
+        } else {
+          // PRG
           this.setPrgBank(this.bankSelect)
         }
 
         const chrA12 = this.regs[0] & 0x80
         const bank = this.regs[0] & 7
         if ((chrA12 === 0 && bank < 2) || (chrA12 !== 0 && bank >= 2 && bank < 6))
-          this.options.setMirrorMode(
-            (value & 0x80) === 0 ? MirrorMode.SINGLE0 : MirrorMode.SINGLE1)
+          this.options.setMirrorMode((value & 0x80) === 0 ? MirrorMode.SINGLE0 : MirrorMode.SINGLE1)
       }
     })
   }

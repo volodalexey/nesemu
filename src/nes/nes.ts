@@ -1,20 +1,22 @@
 // NES: Nintendo Entertainment System
 
-import {Apu, IChannel, GamePad, WaveType} from './apu'
+import {Apu, APUSaveData, GamePad} from './apu/apu'
 import {Bus} from './bus'
 import {ICartridge} from './cartridge'
-import {Cpu, IrqType} from './cpu/cpu'
-import {Ppu} from './ppu/ppu'
+import {Cpu, CPUSaveData, IrqType} from './cpu/cpu'
+import {Ppu, PPUSaveData} from './ppu/ppu'
 import {Address, Byte} from './types'
 import {Util} from '../util/util'
 import {CPU_HZ, VBlank} from './const'
 
-import {Mapper} from './mapper/mapper'
+import {Mapper, MapperSaveData} from './mapper/mapper'
 import {kMapperTable} from './mapper/mapper_table'
+import {WaveType} from './apu/apu.constants'
+import {IChannel} from './apu/channel'
 
 const RAM_SIZE = 0x0800
 
-const VCYCLE = (VBlank.VRETURN * 341 / 3) | 0
+const VCYCLE = ((VBlank.VRETURN * 341) / 3) | 0
 
 const OAMDMA = 0x4014
 
@@ -32,6 +34,14 @@ export interface NesOption {
   apuIrqFn?: () => void
 }
 
+type NesSaveData = {
+  cpu: CPUSaveData
+  ppu: PPUSaveData
+  apu: APUSaveData
+  mapper: MapperSaveData | null
+  ram: string
+}
+
 export class Nes {
   protected ram = new Uint8Array(RAM_SIZE)
   protected bus: Bus
@@ -44,14 +54,14 @@ export class Nes {
 
   protected mapper: Mapper
   private prgRom = new Uint8Array(0)
-  private eventCallback: (event: NesEvent, param?: any) => void
+  private eventCallback: (event: NesEvent, param?: unknown) => void
   private breakPointCallback: () => void
   private prgBank: number[] = []
   private apuChannelCount = 0
   private channelWaveTypes: WaveType[]
   private gamePads = [new GamePad(), new GamePad()]
 
-  private peripheralMap = new Map<number, (adr: Address, value?: Byte) => any>()
+  private peripheralMap = new Map<number, (adr: Address, value?: Byte) => Byte>()
 
   public static isMapperSupported(mapperNo: number): boolean {
     return mapperNo in kMapperTable
@@ -72,12 +82,20 @@ export class Nes {
     this.setMemoryMap()
   }
 
-  public getBus(): Bus { return this.bus }
-  public getCpu(): Cpu { return this.cpu }
-  public getPpu(): Ppu { return this.ppu }
-  public getCycleCount(): number { return this.cycleCount }
+  public getBus(): Bus {
+    return this.bus
+  }
+  public getCpu(): Cpu {
+    return this.cpu
+  }
+  public getPpu(): Ppu {
+    return this.ppu
+  }
+  public getCycleCount(): number {
+    return this.cycleCount
+  }
 
-  public setEventCallback(callback: (event: NesEvent, param?: any) => void): void {
+  public setEventCallback(callback: (event: NesEvent, param?: unknown) => void): void {
     this.eventCallback = callback
   }
 
@@ -99,14 +117,13 @@ export class Nes {
     this.addExtraSoundChannels(this.mapper.getExtraChannelWaveTypes())
   }
 
-  public addExtraSoundChannels(extras: WaveType[]|null): void {
+  public addExtraSoundChannels(extras: WaveType[] | null): void {
     let channels = this.apu.getWaveTypes()
-    if (extras != null)
-      channels = channels.concat(extras)
+    if (extras != null) channels = channels.concat(extras)
     this.channelWaveTypes = channels
   }
 
-  public setPeripheral(ioMap: Map<number, (adr: Address, value?: Byte) => any>): void {
+  public setPeripheral(ioMap: Map<number, (adr: Address, value?: Byte) => number>): void {
     for (const [adr, value] of ioMap) {
       console.assert(0x4000 <= adr && adr <= 0x5fff)
       this.peripheralMap.set(adr, value)
@@ -117,7 +134,7 @@ export class Nes {
     this.mapper = mapper
   }
 
-  public save(): object {
+  public save(): NesSaveData {
     return {
       cpu: this.cpu.save(),
       ppu: this.ppu.save(),
@@ -127,7 +144,7 @@ export class Nes {
     }
   }
 
-  public load(saveData: any): void {
+  public load(saveData: NesSaveData): void {
     this.cpu.load(saveData.cpu)
     this.ppu.load(saveData.ppu)
     this.apu.load(saveData.apu)
@@ -135,13 +152,12 @@ export class Nes {
     this.ram = Util.convertBase64StringToUint8Array(saveData.ram)
   }
 
-  public saveSram(): object|null {
+  public saveSram(): object | null {
     return this.cartridge?.isBatteryOn ? this.mapper.saveSram() : null
   }
 
-  public loadSram(saveData: any): void {
-    if (this.cartridge?.isBatteryOn)
-      this.mapper.loadSram(saveData)
+  public loadSram(saveData: NesSaveData): void {
+    if (this.cartridge?.isBatteryOn && saveData.mapper) this.mapper.loadSram(saveData.mapper)
   }
 
   public reset(): void {
@@ -150,8 +166,7 @@ export class Nes {
     this.apu.reset()
     this.cycleCount = 0
 
-    if (this.mapper != null)
-      this.mapper.reset()
+    if (this.mapper != null) this.mapper.reset()
   }
 
   public setPadStatus(no: number, status: number): void {
@@ -166,7 +181,8 @@ export class Nes {
         const cycle = this.cpu.step()
         leftCycles -= cycle
         this.tryHblankEvent(cycle, leftCycles)
-        if (notPaused && this.cpu.isPaused()) {  // Hit break point.
+        if (notPaused && this.cpu.isPaused()) {
+          // Hit break point.
           this.breakPointCallback()
           return 0
         }
@@ -183,8 +199,7 @@ export class Nes {
   }
 
   public getSoundChannel(ch: number): IChannel {
-    if (ch < this.apuChannelCount)
-      return this.apu.getChannel(ch)
+    if (ch < this.apuChannelCount) return this.apu.getChannel(ch)
     return this.mapper.getSoundChannel(ch - this.apuChannelCount)
   }
 
@@ -192,7 +207,7 @@ export class Nes {
     this.ppu.render(pixels)
   }
 
-  public createMapper(mapperNo: number, cartridge: ICartridge|null): Mapper {
+  public createMapper(mapperNo: number, cartridge: ICartridge | null): Mapper {
     const mapperFunc = kMapperTable[mapperNo]
     return mapperFunc({
       cartridge,
@@ -221,23 +236,28 @@ export class Nes {
 
   protected writeToApu(adr: Address, value: Byte): void {
     switch (adr) {
-    case OAMDMA:
-      if (0 <= value && value <= 0x1f) {  // RAM
-        this.ppu.copyWithDma(this.ram, value << 8)
-        this.cpu.stall(513)
-      } else if (0x60 <= value && value <= 0x7f) {
-        const sram = this.mapper.getSram()
-        if (sram != null) {
-          this.ppu.copyWithDma(sram, (value - 0x60) << 8)
+      case OAMDMA:
+        if (0 <= value && value <= 0x1f) {
+          // RAM
+          this.ppu.copyWithDma(this.ram, value << 8)
           this.cpu.stall(513)
+        } else if (0x60 <= value && value <= 0x7f) {
+          const sram = this.mapper.getSram()
+          if (sram != null) {
+            this.ppu.copyWithDma(sram, (value - 0x60) << 8)
+            this.cpu.stall(513)
+          }
+        } else {
+          console.error(`OAMDMA not implemented except for RAM: ${Util.hex(value, 2)}`)
         }
-      } else {
-        console.error(`OAMDMA not implemented except for RAM: ${Util.hex(value, 2)}`)
-      }
-      break
-    default:
-      this.apu.write(adr, value)
-      break
+        break
+      default:
+        if (adr === 0x4015) {
+          this.apu.write(adr, 0b10000)
+        } else {
+          this.apu.write(adr, value)
+        }
+        break
     }
   }
 
@@ -245,35 +265,36 @@ export class Nes {
     const bus = this.bus
     bus.clearMemoryMap()
 
-    bus.setReadMemory(0x2000, 0x3fff, adr => {  // PPU
+    bus.setReadMemory(0x2000, 0x3fff, adr => {
+      // PPU
       const reg = adr & 7
       return this.ppu.read(reg)
     })
-    bus.setWriteMemory(0x2000, 0x3fff, (adr, value) => {  // PPU
+    bus.setWriteMemory(0x2000, 0x3fff, (adr, value) => {
+      // PPU
       const reg = adr & 7
       this.ppu.write(reg, value)
     })
 
     bus.setReadMemory(0x4000, 0x5fff, adr => {
-      if (this.peripheralMap.has(adr))
-        return this.peripheralMap.get(adr)!(adr)
-      return this.readFromApu(adr)  // APU
+      if (this.peripheralMap.has(adr)) return this.peripheralMap.get(adr)!(adr)
+      return this.readFromApu(adr) // APU
     })
     bus.setWriteMemory(0x4000, 0x5fff, (adr, value) => {
       if (this.peripheralMap.has(adr)) {
         this.peripheralMap.get(adr)!(adr, value)
         return
       }
-      this.writeToApu(adr, value)  // APU
+      this.writeToApu(adr, value) // APU
     })
 
     // PRG ROM
     const prgMask = (this.prgRom.length - 1) | 0
     this.prgBank = [
-      0x0000,             // 0x8000~
-      0x2000,             // 0xa000~
-      -0x4000 & prgMask,  // 0xc000~
-      -0x2000 & prgMask,  // 0xe000~
+      0x0000, // 0x8000~
+      0x2000, // 0xa000~
+      -0x4000 & prgMask, // 0xc000~
+      -0x2000 & prgMask, // 0xe000~
     ]
     bus.setReadMemory(0x8000, 0xffff, adr => {
       adr = adr | 0
@@ -284,7 +305,9 @@ export class Nes {
 
     // RAM
     bus.setReadMemory(0x0000, 0x1fff, adr => this.ram[adr & (RAM_SIZE - 1)])
-    bus.setWriteMemory(0x0000, 0x1fff, (adr, value) => { this.ram[adr & (RAM_SIZE - 1)] = value })
+    bus.setWriteMemory(0x0000, 0x1fff, (adr, value) => {
+      this.ram[adr & (RAM_SIZE - 1)] = value
+    })
   }
 
   private tryHblankEvent(cycle: number, leftCycles: number): void {
@@ -301,8 +324,7 @@ export class Nes {
       this.apu.onHblank(hcount)
       this.mapper.onHblank(hcount)
 
-      if (hcount === VBlank.NMI)
-        this.eventCallback(NesEvent.VBlank, (leftCycles / VCYCLE) | 0)
+      if (hcount === VBlank.NMI) this.eventCallback(NesEvent.VBlank, (leftCycles / VCYCLE) | 0)
     }
     this.cycleCount = nextCycleCount
   }

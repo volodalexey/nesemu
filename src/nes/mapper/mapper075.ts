@@ -13,22 +13,19 @@ export class Mapper075 extends Mapper {
 
     const BANK_BIT = 13
     const count = options.cartridge!.prgRom.byteLength >> BANK_BIT
-    for (let i = 0; i < 4; ++i)
-      this.options.setPrgBank(i, count - 1)
+    for (let i = 0; i < 4; ++i) this.options.setPrgBank(i, count - 1)
 
     const chrBank = [0, 0]
     const setChrBank = (bank: number, value: number) => {
       chrBank[bank] = value
       const b = bank << 2
       const ofs = value << 2
-      for (let i = 0; i < 4; ++i)
-        this.options.setChrBankOffset(b + i, ofs + i)
+      for (let i = 0; i < 4; ++i) this.options.setChrBankOffset(b + i, ofs + i)
     }
 
     // PRG ROM bank
     this.options.setWriteMemory(0x8000, 0x9fff, (adr, value) => {
-      if (adr < 0x9000)
-        this.options.setPrgBank(0, value)
+      if (adr < 0x9000) this.options.setPrgBank(0, value)
       else {
         this.options.setMirrorMode((value & 1) === 0 ? MirrorMode.VERT : MirrorMode.HORZ)
         setChrBank(0, (chrBank[0] & 0x0f) | ((value & 2) << 3))
@@ -36,12 +33,10 @@ export class Mapper075 extends Mapper {
       }
     })
     this.options.setWriteMemory(0xa000, 0xbfff, (adr, value) => {
-      if (adr < 0xb000)
-        this.options.setPrgBank(1, value)
+      if (adr < 0xb000) this.options.setPrgBank(1, value)
     })
     this.options.setWriteMemory(0xc000, 0xdfff, (adr, value) => {
-      if (adr < 0xd000)
-        this.options.setPrgBank(2, value)
+      if (adr < 0xd000) this.options.setPrgBank(2, value)
     })
 
     // CHR ROM bank

@@ -10,11 +10,10 @@ if (storage == null) {
     if ('localStorage' in window && window.localStorage != null) {
       storage = window.localStorage
     }
-  } catch (e) {
+  } catch (_) {
     // If we cannot use local storage, then use memory storage.
   }
-  if (storage == null)
-    storage = new MemoryStorage()
+  if (storage == null) storage = new MemoryStorage()
 }
 
 // Get key.
@@ -43,11 +42,9 @@ export class StorageUtil {
   public static getInt(key: string, defaultValue: number): number {
     const k = getKey(key)
     const item = storage.getItem(k)
-    if (item == null)
-      return defaultValue
+    if (item == null) return defaultValue
     const value = parseInt(item, 10)
-    if (isNaN(value))
-      return defaultValue
+    if (isNaN(value)) return defaultValue
     return value
   }
 
@@ -55,11 +52,9 @@ export class StorageUtil {
   public static getFloat(key: string, defaultValue: number): number {
     const k = getKey(key)
     const item = storage.getItem(k)
-    if (item == null)
-      return defaultValue
+    if (item == null) return defaultValue
     const value = parseFloat(item)
-    if (isNaN(value))
-      return defaultValue
+    if (isNaN(value)) return defaultValue
     return value
   }
 
@@ -67,10 +62,8 @@ export class StorageUtil {
   public static getBool(key: string, defaultValue: boolean): boolean {
     const k = getKey(key)
     const value = storage.getItem(k)
-    if (value === 'true')
-      return true
-    if (value === 'false')
-      return false
+    if (value === 'true') return true
+    if (value === 'false') return false
     return defaultValue
   }
 
@@ -79,8 +72,7 @@ export class StorageUtil {
     const k = getKey(key)
     const value = storage.getItem(k)
     try {
-      if (value != null)
-        return JSON.parse(value)
+      if (value != null) return JSON.parse(value)
     } catch (e) {
       console.error(e)
     }

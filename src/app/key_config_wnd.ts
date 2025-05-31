@@ -1,6 +1,5 @@
 import {DomUtil} from '../util/dom_util'
 import {GamepadManager} from '../util/gamepad_manager'
-import {PadBit} from '../nes/apu'
 import {PadKeyHandler} from '../util/pad_key_handler'
 import {KeyboardManager} from '../util/keyboard_manager'
 import {WindowManager} from '../wnd/window_manager'
@@ -8,6 +7,7 @@ import {Wnd} from '../wnd/wnd'
 import {WndEvent} from '../wnd/types'
 
 import {default as escape} from 'escape-html'
+import {PadBit} from '../nes/apu/apu.constants'
 
 interface GamepadButtonOption {
   width?: number
@@ -23,14 +23,14 @@ interface GamepadButtonDef {
 }
 
 const kGamepadButtons: GamepadButtonDef[] = [
-  {x: 175, y:  55, padbit: PadBit.A, opt: {type: 'round'}},
-  {x: 130, y:  55, padbit: PadBit.B, opt: {type: 'round'}},
-  {x:  50, y: 110, padbit: PadBit.SELECT, opt: {width: 60, height: 20}},
+  {x: 175, y: 55, padbit: PadBit.A, opt: {type: 'round'}},
+  {x: 130, y: 55, padbit: PadBit.B, opt: {type: 'round'}},
+  {x: 50, y: 110, padbit: PadBit.SELECT, opt: {width: 60, height: 20}},
   {x: 120, y: 110, padbit: PadBit.START, opt: {width: 60, height: 20}},
-  {x:  40, y:  10, padbit: PadBit.U},
-  {x:  40, y:  70, padbit: PadBit.D},
-  {x:  10, y:  40, padbit: PadBit.L},
-  {x:  70, y:  40, padbit: PadBit.R},
+  {x: 40, y: 10, padbit: PadBit.U},
+  {x: 40, y: 70, padbit: PadBit.D},
+  {x: 10, y: 40, padbit: PadBit.L},
+  {x: 70, y: 40, padbit: PadBit.R},
 
   {x: 175, y: 15, padbit: PadBit.REPEAT_A, opt: {type: 'round'}},
   {x: 130, y: 15, padbit: PadBit.REPEAT_B, opt: {type: 'round'}},
@@ -41,9 +41,13 @@ abstract class GamepadBaseWnd extends Wnd {
   protected buttons: HTMLElement[]
   private selectedButton: HTMLElement | null = null
 
-  protected static createButton(parent: HTMLElement, x: number, y: number, name: string,
-                                opt: GamepadButtonOption = {}): HTMLElement
-  {
+  protected static createButton(
+    parent: HTMLElement,
+    x: number,
+    y: number,
+    name: string,
+    opt: GamepadButtonOption = {},
+  ): HTMLElement {
     const btn = document.createElement('div')
     btn.className = 'gamepad-btn'
     DomUtil.setStyles(btn, {
@@ -54,14 +58,15 @@ abstract class GamepadBaseWnd extends Wnd {
       overflow: 'hidden',
     })
     btn.innerHTML = name
-    if (opt.type === 'round')
-      btn.style.borderRadius = '15px'
+    if (opt.type === 'round') btn.style.borderRadius = '15px'
     parent.appendChild(btn)
     return btn
   }
 
   public constructor(
-    wndMgr: WindowManager, title: string, labels: string[],
+    wndMgr: WindowManager,
+    title: string,
+    labels: string[],
     private onClose?: () => void,
   ) {
     super(wndMgr, 230, 150, title)
@@ -91,19 +96,19 @@ abstract class GamepadBaseWnd extends Wnd {
   }
 
   public close(): void {
-    if (this.onClose != null)
-      this.onClose()
+    if (this.onClose != null) this.onClose()
     super.close()
   }
 
-  public onEvent(event: WndEvent, _param?: any): any {
+  public onEvent(event: WndEvent, _param?: unknown): boolean {
     switch (event) {
-    case WndEvent.UPDATE_FRAME:
-      this.updateGamepad()
-      break
-    default:
-      break
+      case WndEvent.UPDATE_FRAME:
+        this.updateGamepad()
+        break
+      default:
+        break
     }
+    return false
   }
 
   protected updateButtonLabels(labels: string[]): void {
@@ -120,8 +125,7 @@ abstract class GamepadBaseWnd extends Wnd {
   private updateGamepad(): void {
     if (this.selectedButton != null && this.isTop()) {
       const buttonIndex = this.buttons.indexOf(this.selectedButton)
-      if (this.modifyButton(buttonIndex))
-        this.setSelectedButton(null)
+      if (this.modifyButton(buttonIndex)) this.setSelectedButton(null)
     }
 
     const pad = this.checkGamepad()
@@ -159,14 +163,14 @@ abstract class GamepadBaseWnd extends Wnd {
 // Config window.
 
 const kGamepadLabels: string[] = [
-  'A',       // PadBit.A
-  'B',       // PadBit.B
-  'Select',  // PadBit.SELECT
-  'Start',   // PadBit.START
-  '&uarr;',  // PadBit.U
-  '&darr;',  // PadBit.D
-  '&larr;',  // PadBit.L
-  '&rarr;',  // PadBit.R
+  'A', // PadBit.A
+  'B', // PadBit.B
+  'Select', // PadBit.SELECT
+  'Start', // PadBit.START
+  '&uarr;', // PadBit.U
+  '&darr;', // PadBit.D
+  '&larr;', // PadBit.L
+  '&rarr;', // PadBit.R
 
   'X', // PadBit.REPEAT_A
   'Y', // PadBit.REPEAT_B
@@ -181,16 +185,14 @@ export class GamepadWnd extends GamepadBaseWnd {
   protected checkGamepad(): number {
     const padNo = 0
     const gamepad = this.getGamepad(padNo)
-    if (!gamepad || this.wndMgr.isBlur())
-      return 0
+    if (!gamepad || this.wndMgr.isBlur()) return 0
     return GamepadManager.getState(padNo)
   }
 
   protected modifyButton(buttonIndex: number): boolean {
     const padNo = 0
     const gamepad = this.getGamepad(padNo)
-    if (!gamepad)
-      return false
+    if (!gamepad) return false
 
     for (let i = 0; i < gamepad.buttons.length; ++i) {
       if (gamepad.buttons[i].pressed) {
@@ -215,11 +217,9 @@ export class GamepadWnd extends GamepadBaseWnd {
   }
 
   private getGamepad(padNo: number): Gamepad | null {
-    if (!window.Gamepad)
-      return null
+    if (!window.Gamepad) return null
     const gamepads = navigator.getGamepads()
-    if (padNo >= gamepads.length)
-      return null
+    if (padNo >= gamepads.length) return null
     return gamepads[padNo]
   }
 }
@@ -254,8 +254,7 @@ const kKeyLabels: Record<string, string> = (() => {
     const chr = String.fromCharCode(i)
     table[`Key${chr}`] = chr
   }
-  for (let i = 0; i <= 9; ++i)
-    table[`Digit${i}`] = i.toString()
+  for (let i = 0; i <= 9; ++i) table[`Digit${i}`] = i.toString()
   return table
 })()
 
@@ -275,7 +274,7 @@ export class KeyConfigWnd extends GamepadBaseWnd {
       event.preventDefault()
       this.keyboardManager.onKeyUp(event)
     }
-    const root = document.body  // TODO:
+    const root = document.body // TODO:
     root.addEventListener('keydown', onKeyDown)
     root.addEventListener('keyup', onKeyUp)
   }
@@ -285,16 +284,14 @@ export class KeyConfigWnd extends GamepadBaseWnd {
     const table = PadKeyHandler.getMapping(padNo)
     let state = 0
     for (let i = 0; i < table.length; ++i) {
-      if (this.keyboardManager.getKeyPressing(table[i].key))
-        state |= table[i].bit
+      if (this.keyboardManager.getKeyPressing(table[i].key)) state |= table[i].bit
     }
     return state
   }
 
   protected modifyButton(buttonIndex: number): boolean {
     const key = this.keyboardManager.getLastPressing()
-    if (!key)
-      return false
+    if (!key) return false
 
     const padNo = 0
     const button = kGamepadButtons[buttonIndex]
@@ -316,8 +313,7 @@ export class KeyConfigWnd extends GamepadBaseWnd {
     const padNo = 0
     const table = PadKeyHandler.getMapping(padNo)
     const labels = table.map(t => {
-      if (t.key in kKeyLabels)
-        return kKeyLabels[t.key]
+      if (t.key in kKeyLabels) return kKeyLabels[t.key]
       return escape(t.key)
     })
     super.updateButtonLabels(labels)

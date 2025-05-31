@@ -7,7 +7,9 @@ export abstract class SoundChannel {
   public abstract setVolume(volume: number): void
   public abstract start(): void
 
-  public setFrequency(_frequency: number): void { throw new Error('Invalid call') }
+  public setFrequency(_frequency: number): void {
+    throw new Error('Invalid call')
+  }
 }
 
 // Volume controllable.
@@ -30,17 +32,14 @@ abstract class GainSoundChannel extends SoundChannel {
   }
 
   public setEnable(enable: boolean): void {
-    if (enable === this.enable)
-      return
+    if (enable === this.enable) return
     this.enable = enable
 
-    if (!enable)
-      this.gainNode.gain.setValueAtTime(0, this.gainNode.context.currentTime)
+    if (!enable) this.gainNode.gain.setValueAtTime(0, this.gainNode.context.currentTime)
   }
 
   public setVolume(volume: number): void {
-    if (volume === this.volume)
-      return
+    if (volume === this.volume) return
     this.volume = volume
 
     this.gainNode.gain.setValueAtTime(volume, this.gainNode.context.currentTime)
@@ -73,27 +72,29 @@ abstract class OscillatorChannel extends GainSoundChannel {
   }
 
   public setFrequency(frequency: number): void {
-    if (frequency === this.frequency)
-      return
+    if (frequency === this.frequency) return
     this.frequency = frequency
 
     const now = this.oscillator.context.currentTime
     this.oscillator.frequency.setValueAtTime(frequency, now)
   }
 
-  protected abstract setupOscillator(oscillator: OscillatorNode, context: AudioContext,
-                                     destination: AudioNode): void
+  protected abstract setupOscillator(
+    oscillator: OscillatorNode,
+    context: AudioContext,
+    destination: AudioNode,
+  ): void
 }
 
 //
 
-function createQuantizedTriangleWave(div: number, N: number): {an: Float32Array, bn: Float32Array} {
+function createQuantizedTriangleWave(div: number, N: number): {an: Float32Array; bn: Float32Array} {
   const an = new Float32Array(N + 1)
   an[0] = 0
   const coeff = 2 / (div - 1)
   for (let i = 1; i <= N; ++i) {
     let a = 0
-    const fa = (x: number) => 1 / (2 * i * Math.PI) *  Math.sin(2 * i * Math.PI * x)
+    const fa = (x: number) => (1 / (2 * i * Math.PI)) * Math.sin(2 * i * Math.PI * x)
     for (let j = 0; j < div * 2; ++j) {
       const k = j < div ? 1 - j * coeff : -1 + (j - div) * coeff
       a += k * (fa((j + 1) / (2 * div)) - fa(j / (2 * div)))
@@ -106,8 +107,11 @@ function createQuantizedTriangleWave(div: number, N: number): {an: Float32Array,
 }
 
 export class TriangleChannel extends OscillatorChannel {
-  protected setupOscillator(oscillator: OscillatorNode, context: AudioContext,
-                            destination: AudioNode): void {
+  protected setupOscillator(
+    oscillator: OscillatorNode,
+    context: AudioContext,
+    destination: AudioNode,
+  ): void {
     const {an, bn} = createQuantizedTriangleWave(16, 128)
     const wave = context.createPeriodicWave(an, bn)
     oscillator.setPeriodicWave(wave)
@@ -117,8 +121,11 @@ export class TriangleChannel extends OscillatorChannel {
 }
 
 export class SawtoothChannel extends OscillatorChannel {
-  protected setupOscillator(oscillator: OscillatorNode, _context: AudioContext,
-                            destination: AudioNode): void {
+  protected setupOscillator(
+    oscillator: OscillatorNode,
+    _context: AudioContext,
+    destination: AudioNode,
+  ): void {
     oscillator.type = 'sawtooth'
     oscillator.connect(this.gainNode)
     this.gainNode.connect(destination)
@@ -129,7 +136,7 @@ export class SawtoothChannel extends OscillatorChannel {
 export class PulseChannel extends OscillatorChannel {
   private delay: DelayNode
   private dutyRatio = 0.5
-  private negate = 1  // +1 or -1
+  private negate = 1 // +1 or -1
 
   public destroy(): void {
     super.destroy()
@@ -144,24 +151,25 @@ export class PulseChannel extends OscillatorChannel {
   }
 
   public setFrequency(frequency: number): void {
-    if (this.frequency === frequency)
-      return
+    if (this.frequency === frequency) return
     super.setFrequency(frequency)
 
     this.updateDelay()
   }
 
   public setDutyRatio(dutyRatio: number): void {
-    if (dutyRatio === this.dutyRatio)
-      return
+    if (dutyRatio === this.dutyRatio) return
     this.dutyRatio = dutyRatio
     this.negate = dutyRatio <= 0.5 ? 1 : -1
 
     this.updateDelay()
   }
 
-  protected setupOscillator(oscillator: OscillatorNode, context: AudioContext,
-                            destination: AudioNode): void {
+  protected setupOscillator(
+    oscillator: OscillatorNode,
+    context: AudioContext,
+    destination: AudioNode,
+  ): void {
     oscillator.type = 'sawtooth'
 
     const inverter = context.createGain()

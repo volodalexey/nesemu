@@ -4,14 +4,15 @@ import {SubmenuItemInfo, WndEvent, Z_MENU_SUBITEM} from './types'
 import {Wnd} from './wnd'
 
 export type ResizeOption = {
-  minWidth?: number;
-  minHeight?: number;
-  cornerOnly?: boolean;
+  minWidth?: number
+  minHeight?: number
+  cornerOnly?: boolean
 }
 
 export class WndUtil {
   public static getOffsetRect(
-    parent: HTMLElement, target: HTMLElement,
+    parent: HTMLElement,
+    target: HTMLElement,
   ): {left: number; top: number; right: number; bottom: number} {
     const prect = parent.getBoundingClientRect()
     const trect = target.getBoundingClientRect()
@@ -24,7 +25,8 @@ export class WndUtil {
   }
 
   public static createHorizontalSplitter(
-    parent: HTMLElement, upperHeight: number,
+    parent: HTMLElement,
+    upperHeight: number,
   ): [HTMLElement, HTMLElement] {
     const upper = document.createElement('div')
     upper.className = 'upper'
@@ -55,30 +57,32 @@ export class WndUtil {
   }
 
   public static makeDraggable(
-    element: HTMLElement, grip: HTMLElement, getClientRect: () => DOMRect,
+    element: HTMLElement,
+    grip: HTMLElement,
+    getClientRect: () => DOMRect,
     onEvent: (event: WndEvent, param?: any) => void,
   ): void {
-    const onDown = (event: MouseEvent|TouchEvent) => {
-      switch(event.type) {
-      case 'mousedown':
-        if ((event as MouseEvent).button !== 0)
+    const onDown = (event: MouseEvent | TouchEvent) => {
+      switch (event.type) {
+        case 'mousedown':
+          if ((event as MouseEvent).button !== 0) return false
+          break
+        case 'touchstart':
+          if (
+            (event as TouchEvent).changedTouches.length <= 0 ||
+            (event as TouchEvent).changedTouches[0].identifier !== 0
+          )
+            return false
+          break
+        default:
           return false
-        break
-      case 'touchstart':
-        if ((event as TouchEvent).changedTouches.length <= 0 ||
-            (event as TouchEvent).changedTouches[0].identifier !== 0)
-          return false
-        break
-      default:
-        return false
       }
 
       onEvent(WndEvent.DRAG_BEGIN)
 
       const rootRect = getClientRect()
 
-      if (event.cancelable)
-        event.preventDefault()
+      if (event.cancelable) event.preventDefault()
       const [mx, my] = DomUtil.getMousePosIn(event, element)
       const dragOfsX = -mx
       const dragOfsY = -my
@@ -110,7 +114,8 @@ export class WndUtil {
   }
 
   public static makeResizable(
-    element: HTMLElement, getClientRect: () => DOMRect,
+    element: HTMLElement,
+    getClientRect: () => DOMRect,
     onEvent: (event: WndEvent, param?: any) => void,
     opt?: ResizeOption,
   ): void {
@@ -118,10 +123,16 @@ export class WndUtil {
     const MIN_HEIGHT = (opt?.minHeight || 60) + Wnd.TITLEBAR_HEIGHT
     const W = 8
 
-    type StyleParams = {left?: string, right?: string, top?: string, bottom?: string, cursor?: string}
-    type Horz = 'left'|'right'|'center'
-    type Vert = 'top'|'bottom'|'center'
-    const table: Array<{styleParams: StyleParams, horz: Horz, vert: Vert}> = [
+    type StyleParams = {
+      left?: string
+      right?: string
+      top?: string
+      bottom?: string
+      cursor?: string
+    }
+    type Horz = 'left' | 'right' | 'center'
+    type Vert = 'top' | 'bottom' | 'center'
+    const table: Array<{styleParams: StyleParams; horz: Horz; vert: Vert}> = [
       // Corners
       {
         styleParams: {right: '-1px', bottom: '-1px', cursor: 'nwse-resize'},
@@ -167,8 +178,7 @@ export class WndUtil {
     ]
 
     table.forEach(param => {
-      if (opt?.cornerOnly && (param.horz === 'center' || param.vert === 'center'))
-        return
+      if (opt?.cornerOnly && (param.horz === 'center' || param.vert === 'center')) return
 
       const resizeBox = document.createElement('div')
       resizeBox.className = 'resize-box'
@@ -180,21 +190,22 @@ export class WndUtil {
         height: param.vert !== 'center' ? `${W}px` : undefined,
         zIndex: '2000',
       })
-      const onDown = (event: MouseEvent|TouchEvent) => {
-        switch(event.type) {
-        case 'mousedown':
-          if ((event as MouseEvent).button !== 0)
+      const onDown = (event: MouseEvent | TouchEvent) => {
+        switch (event.type) {
+          case 'mousedown':
+            if ((event as MouseEvent).button !== 0) return false
+            event.preventDefault()
+            break
+          case 'touchstart':
+            if (
+              (event as TouchEvent).changedTouches.length <= 0 ||
+              (event as TouchEvent).changedTouches[0].identifier !== 0
+            )
+              return false
+            // Cannot call event.preventDefault() because touch event is used in passive mode.
+            break
+          default:
             return false
-          event.preventDefault()
-          break
-        case 'touchstart':
-          if ((event as TouchEvent).changedTouches.length <= 0 ||
-              (event as TouchEvent).changedTouches[0].identifier !== 0)
-            return false
-          // Cannot call event.preventDefault() because touch event is used in passive mode.
-          break
-        default:
-          return false
         }
 
         event.stopPropagation()
@@ -209,7 +220,7 @@ export class WndUtil {
           top: rect.top - prect.top,
           right: rect.right - prect.left,
           bottom: rect.bottom - prect.top,
-          center: 0,  // dummy
+          center: 0, // dummy
         }
 
         onEvent(WndEvent.RESIZE_BEGIN)
@@ -223,7 +234,7 @@ export class WndUtil {
             box[param.horz] = x + dragOfsX
             box[param.vert] = y + dragOfsY
 
-            let width = box.right - box.left - 2  // For border width.
+            let width = box.right - box.left - 2 // For border width.
             let height = box.bottom - box.top - 2
             if (width < MIN_WIDTH) {
               box[param.horz] -= (MIN_WIDTH - width) * (param.horz === 'left' ? 1 : -1)
@@ -264,8 +275,7 @@ export class WndUtil {
     option: {className?: string; onClose?: () => void},
   ): () => void {
     const subItemHolder = document.createElement('div')
-    if (option.className != null)
-      subItemHolder.className = option.className
+    if (option.className != null) subItemHolder.className = option.className
     subItemHolder.style.zIndex = String(Z_MENU_SUBITEM)
     subItemHolder.addEventListener('click', event => {
       event.stopPropagation()
@@ -277,8 +287,7 @@ export class WndUtil {
       const subItemElem = document.createElement('div')
       if (submenuItem.label !== '----') {
         let checked = submenuItem.checked
-        if (typeof submenuItem.checked === 'function')
-          checked = submenuItem.checked()
+        if (typeof submenuItem.checked === 'function') checked = submenuItem.checked()
         if (checked) {
           const checkedElem = document.createElement('div')
           checkedElem.className = 'submenu-check'
@@ -294,19 +303,16 @@ export class WndUtil {
         }
 
         let disabled = submenuItem.disabled
-        if (typeof submenuItem.disabled === 'function')
-          disabled = submenuItem.disabled()
+        if (typeof submenuItem.disabled === 'function') disabled = submenuItem.disabled()
         if (disabled) {
           subItemElem.className = 'menu-item disabled'
         } else {
           subItemElem.className = 'menu-item'
           submenuRow.addEventListener('click', _event => {
-            if (submenuItem.click)
-              submenuItem.click()
+            if (submenuItem.click) submenuItem.click()
 
             close()
-            if (option.onClose != null)
-              option.onClose()
+            if (option.onClose != null) option.onClose()
           })
         }
       } else {
@@ -323,16 +329,14 @@ export class WndUtil {
     DomUtil.setStyles(subItemHolder, pos)
 
     const close = () => {
-      if (subItemHolder.parentNode != null)
-        subItemHolder.parentNode.removeChild(subItemHolder)
+      if (subItemHolder.parentNode != null) subItemHolder.parentNode.removeChild(subItemHolder)
       document.removeEventListener('click', onClickOther)
     }
 
     // To handle earlier than menu open, pass useCapture=true
     const onClickOther = (_event: MouseEvent) => {
       close()
-      if (option.onClose != null)
-        option.onClose()
+      if (option.onClose != null) option.onClose()
     }
     document.addEventListener('click', onClickOther /*, true*/)
 

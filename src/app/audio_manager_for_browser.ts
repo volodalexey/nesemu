@@ -11,36 +11,32 @@ export class AudioManagerForBrowser extends AudioManager {
 
   public static createAnalyser(): AnalyserNode | null {
     const context = AudioManager.context
-    if (context == null)
-      return null
+    if (context == null) return null
     if (AudioManagerForBrowser.analyserNode == null) {
       AudioManagerForBrowser.analyserNode = context.createAnalyser()
       AudioManagerForBrowser.createDcRemoveFilter(context)
-          .then((node) => {
-            AudioManager.masterGainNode.connect(node)
-            node.connect(AudioManagerForBrowser.analyserNode!)
-          })
-          .catch(() => {
-            AudioManager.masterGainNode.connect(AudioManagerForBrowser.analyserNode!)
-          })
+        .then(node => {
+          AudioManager.masterGainNode.connect(node)
+          node.connect(AudioManagerForBrowser.analyserNode!)
+        })
+        .catch(() => {
+          AudioManager.masterGainNode.connect(AudioManagerForBrowser.analyserNode!)
+        })
     }
     return AudioManagerForBrowser.analyserNode
   }
 
   private static async createDcRemoveFilter(context: AudioContext): Promise<AudioWorkletNode> {
-    if (typeof(AudioWorkletNode) === 'undefined')
-      return Promise.reject()
+    if (typeof AudioWorkletNode === 'undefined') return Promise.reject()
     await context.audioWorklet.addModule(DcRemoveWorkletURL)
     return new AudioWorkletNode(context, 'dc_remove_worklet')
   }
 
   override createNoiseChannel(context: AudioContext, destination: AudioNode): INoiseChannel {
-    return AwNoiseChannel.create(context, destination) ||
-        new SpNoiseChannel(context, destination)
+    return AwNoiseChannel.create(context, destination) || new SpNoiseChannel(context, destination)
   }
 
   override createDmcChannel(context: AudioContext, destination: AudioNode): IDmcChannel {
-    return AwDmcChannel.create(context, destination) ||
-        new SpDmcChannel(context, destination)
+    return AwDmcChannel.create(context, destination) || new SpDmcChannel(context, destination)
   }
 }

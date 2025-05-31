@@ -2,9 +2,8 @@ import {Nes, NesEvent} from '../nes/nes'
 import {ICartridge, Cartridge} from '../nes/cartridge'
 import {Keyboard} from '../nes/peripheral/keyboard'
 
-import {AppEvent} from './app_event'
+import {AppEventType, AppStream} from './app_event'
 import {AudioManagerForBrowser} from './audio_manager_for_browser'
-import {IDeltaModulationChannel, INoiseChannel, IPulseChannel, WaveType} from '../nes/apu'
 import {DomUtil} from '../util/dom_util'
 import {Fds} from '../nes/fds/fds'
 import {GlobalSetting} from './global_setting'
@@ -15,6 +14,10 @@ import {WindowManager} from '../wnd/window_manager'
 import {Wnd} from '../wnd/wnd'
 
 import * as Pubsub from '../util/pubsub'
+import {WaveType} from '../nes/apu/apu.constants'
+import {INoiseChannel} from '../nes/apu/noise'
+import {IDeltaModulationChannel} from '../nes/apu/dmc'
+import {IPulseChannel} from '../nes/apu/pulse'
 
 const MAX_ELAPSED_TIME = 1000 / 15
 
@@ -35,7 +38,7 @@ export class App {
   protected cartridge: ICartridge
   protected audioManager: AudioManagerForBrowser
   protected channelVolumes: Float32Array
-  protected stream = new AppEvent.Stream()
+  protected stream = new AppStream()
   protected subscription: Pubsub.Subscription
 
   protected prgBanks = new Int32Array([0, 1, -2, -1])
@@ -50,39 +53,48 @@ export class App {
     return new App(wndMgr, option, nes)
   }
 
-  constructor(protected wndMgr: WindowManager, protected option: Option, protected nes: Nes, noDefault?: boolean) {
+  constructor(
+    protected wndMgr: WindowManager,
+    protected option: Option,
+    protected nes: Nes,
+    noDefault?: boolean,
+  ) {
     const screenWnd = new ScreenWnd(this.wndMgr, this, this.nes, this.stream)
     this.screenWnd = screenWnd
     this.title = option.title || 'NES'
     this.screenWnd.setTitle(this.title)
 
-    this.subscription = this.stream
-      .subscribe(this.handleAppEvent.bind(this))
+    this.subscription = this.stream.subscribe(this.handleAppEvent.bind(this))
 
     const size = this.screenWnd.getWindowSize()
-    const x = Util.clamp((option.centerX || 0) - size.width / 2,
-                         0, window.innerWidth - size.width - 1)
-    const y = Util.clamp((option.centerY || 0) - size.height / 2,
-                         0, window.innerHeight - size.height - 1)
+    const x = Util.clamp(
+      (option.centerX || 0) - size.width / 2,
+      0,
+      window.innerWidth - size.width - 1,
+    )
+    const y = Util.clamp(
+      (option.centerY || 0) - size.height / 2,
+      0,
+      window.innerHeight - size.height - 1,
+    )
     this.screenWnd.setPos(x, y)
 
-    if (noDefault)
-      return
+    if (noDefault) return
 
-    window.app = this  // Put app into global.
-    this.nes.setEventCallback((event: NesEvent, param?: any) => {
+    window.app = this // Put app into global.
+    this.nes.setEventCallback((event: NesEvent, param?: unknown) => {
       switch (event) {
-      case NesEvent.VBlank:
-        this.onVblank(param as number)
-        break
-      case NesEvent.PrgBankChange:
-        {
-          const value: number = param
-          const bank = (value >> 8) & 3
-          const page = value & 0xff
-          this.prgBanks[bank] = page
-        }
-        break
+        case NesEvent.VBlank:
+          this.onVblank(param as number)
+          break
+        case NesEvent.PrgBankChange:
+          {
+            const value = param as number
+            const bank = (value >> 8) & 3
+            const page = value & 0xff
+            this.prgBanks[bank] = page
+          }
+          break
       }
     })
     this.nes.setBreakPointCallback(() => this.onBreakPoint())
@@ -94,9 +106,8 @@ export class App {
     }
   }
 
-  public loadRom(romData: Uint8Array): string|null {
-    if (!Cartridge.isRomValid(romData))
-      return 'Invalid format'
+  public loadRom(romData: Uint8Array): string | null {
+    if (!Cartridge.isRomValid(romData)) return 'Invalid format'
 
     const cartridge = new Cartridge(romData)
     if (!Nes.isMapperSupported(cartridge.mapperNo))
@@ -115,12 +126,13 @@ export class App {
     // Set up keyboard.
     const romHash = cartridge.calcHashValue()
     switch (romHash) {
-    case '2ba1dbbb774118eb903465f8e66f92a2':  // Family BASIC v3
-    case 'b6fd590c5e833e3ab6b8462e40335842':  // Family BASIC v2.1a
-    case 'fc1668b428b5012e61e2de204164f24c':  // Family BASIC v2.0a
-      this.screenWnd.setKeyboard(new Keyboard())
-      break
-    default: break
+      case '2ba1dbbb774118eb903465f8e66f92a2': // Family BASIC v3
+      case 'b6fd590c5e833e3ab6b8462e40335842': // Family BASIC v2.1a
+      case 'fc1668b428b5012e61e2de204164f24c': // Family BASIC v2.0a
+        this.screenWnd.setKeyboard(new Keyboard())
+        break
+      default:
+        break
     }
 
     return null
@@ -140,8 +152,7 @@ export class App {
   }
 
   public setDiskImage(diskData: Uint8Array): boolean {
-    if (this.fds == null)
-      return false
+    if (this.fds == null) return false
     const result = this.fds.setImage(diskData)
     if (result) {
       this.screenWnd.createFdsCtrlWnd(this.fds)
@@ -159,47 +170,48 @@ export class App {
     return StorageUtil.putObject(this.title, saveData)
   }
 
-  public async saveDataAs(): Promise<FileSystemFileHandle|null> {
+  public async saveDataAs(): Promise<FileSystemFileHandle | null> {
     const paused = this.nes.getCpu().isPaused()
-    if (!paused)
-      this.stream.triggerPause()
+    if (!paused) this.stream.triggerPause()
     try {
       const saveData = JSON.stringify(this.nes.save())
       const filename = `${this.title}.sav`
-      const fileHandle = await DomUtil.downloadOrSaveToFile(saveData, filename, 'Game status', 'application/json', '.sav')
-      if (fileHandle != null)
-        this.wndMgr.showSnackbar(`Data saved: ${filename}`, {type: 'success'})
+      const fileHandle = await DomUtil.downloadOrSaveToFile(
+        saveData,
+        filename,
+        'Game status',
+        'application/json',
+        '.sav',
+      )
+      if (fileHandle != null) this.wndMgr.showSnackbar(`Data saved: ${filename}`, {type: 'success'})
       return fileHandle
-    } catch (e: any) {
-      if (e.name !== 'AbortError') {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name !== 'AbortError') {
         console.error(e)
         this.wndMgr.showSnackbar(`Failed: ${e.toString()}`)
       }
       return null
     } finally {
-      if (!paused)
-        this.stream.triggerRun()
+      if (!paused) this.stream.triggerRun()
     }
   }
 
   public async saveDataTo(fileHandle: FileSystemFileHandle): Promise<void> {
     const paused = this.nes.getCpu().isPaused()
-    if (!paused)
-      this.stream.triggerPause()
+    if (!paused) this.stream.triggerPause()
     try {
       const saveData = JSON.stringify(this.nes.save())
       const writable = await fileHandle.createWritable()
       await writable.write(saveData)
       await writable.close()
       this.wndMgr.showSnackbar(`Data saved to: ${fileHandle.name}`, {type: 'success'})
-    } catch (e: any) {
-      if (e.name !== 'AbortError') {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name !== 'AbortError') {
         console.error(e)
-        this.wndMgr.showSnackbar(`Failed: ${e.ToString()}`)
+        this.wndMgr.showSnackbar(`Failed: ${String(e)}`)
       }
     } finally {
-      if (!paused)
-        this.stream.triggerRun()
+      if (!paused) this.stream.triggerRun()
     }
   }
 
@@ -224,10 +236,9 @@ export class App {
     }
   }
 
-  public async loadDataFromFile(): Promise<FileSystemFileHandle|null> {
+  public async loadDataFromFile(): Promise<FileSystemFileHandle | null> {
     const paused = this.nes.getCpu().isPaused()
-    if (!paused)
-      this.stream.triggerPause()
+    if (!paused) this.stream.triggerPause()
     try {
       const opened = await DomUtil.pickOpenFile('.sav', 'Game data', 'application/binary')
       if (opened != null) {
@@ -235,16 +246,14 @@ export class App {
         this.loadDataFromBinary(new Uint8Array(binary))
         return opened.fileHandle || null
       }
-    } catch (e: any) {
-      if (e.name !== 'AbortError') {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name !== 'AbortError') {
         console.error(e)
-        this.wndMgr.showSnackbar(`Failed: ${e.ToString()}`)
+        this.wndMgr.showSnackbar(`Failed: ${String(e)}`)
       }
     } finally {
-      if (!paused)
-        this.stream.triggerRun()
-      else
-        this.render()
+      if (!paused) this.stream.triggerRun()
+      else this.render()
     }
     return null
   }
@@ -286,85 +295,80 @@ export class App {
   public destroy(): void {
     this.saveSram()
     this.cleanUp()
-    if (this.option.onClosed)
-      this.option.onClosed(this)
+    if (this.option.onClosed) this.option.onClosed(this)
   }
 
   protected loadSram(): void {
     const sram = StorageUtil.getObject(sramKey(this.title), '')
-    if (sram !== '')
-      this.nes.loadSram(sram)
+    if (sram !== '') this.nes.loadSram(sram)
   }
 
   protected saveSram(): void {
     const sram = this.nes.saveSram()
-    if (sram == null)
-      return
+    if (sram == null) return
     StorageUtil.putObject(sramKey(this.title), sram)
   }
 
   protected cleanUp(): void {
     this.destroying = true
-    if (this.audioManager)
-      this.audioManager.release()
+    if (this.audioManager) this.audioManager.release()
 
     this.subscription.unsubscribe()
   }
 
-  protected handleAppEvent(type: AppEvent.Type, param?: any): void {
+  protected handleAppEvent(type: AppEventType, param?: unknown): void {
     switch (type) {
-    case AppEvent.Type.UPDATE:
-      if (!this.isPaused) {
-        const elapsed = param as number
-        this.update(elapsed)
-      }
-      break
-    case AppEvent.Type.RUN:
-      this.nes.getCpu().pause(false)
-      break
-    case AppEvent.Type.PAUSE:
-      this.nes.getCpu().pause(true)
-      this.muteAudio()
-      break
-    case AppEvent.Type.STEP:
-      this.nes.runMilliseconds(0)
-      break
-    case AppEvent.Type.RESET:
-      this.nes.reset()
-      break
-    case AppEvent.Type.PAUSE_APP:
-      this.isPaused = true
-      this.muteAudio()
-      break
-    case AppEvent.Type.RESUME_APP:
-      this.isPaused = false
-      break
-    case AppEvent.Type.CLOSE_WND:
-      {
-        const wnd = param as Wnd
-        if (wnd === this.screenWnd)
-          this.destroy()
-      }
-      break
-    case AppEvent.Type.ENABLE_AUDIO_CHANNEL:
-    case AppEvent.Type.DISABLE_AUDIO_CHANNEL:
-      {
-        const ch = param as number
-        const enable = type === AppEvent.Type.ENABLE_AUDIO_CHANNEL
-        this.channelVolumes[ch] = enable ? 1.0 : 0.0
-      }
-      break
-    default:
-      break
+      case AppEventType.UPDATE:
+        if (!this.isPaused) {
+          const elapsed = param as number
+          this.update(elapsed)
+        }
+        break
+      case AppEventType.RUN:
+        this.nes.getCpu().pause(false)
+        break
+      case AppEventType.PAUSE:
+        this.nes.getCpu().pause(true)
+        this.muteAudio()
+        break
+      case AppEventType.STEP:
+        this.nes.runMilliseconds(0)
+        break
+      case AppEventType.RESET:
+        this.nes.reset()
+        break
+      case AppEventType.PAUSE_APP:
+        this.isPaused = true
+        this.muteAudio()
+        break
+      case AppEventType.RESUME_APP:
+        this.isPaused = false
+        break
+      case AppEventType.CLOSE_WND:
+        {
+          const wnd = param as Wnd
+          if (wnd === this.screenWnd) this.destroy()
+        }
+        break
+      case AppEventType.ENABLE_AUDIO_CHANNEL:
+      case AppEventType.DISABLE_AUDIO_CHANNEL:
+        {
+          const ch = param as number
+          const enable = type === AppEventType.ENABLE_AUDIO_CHANNEL
+          this.channelVolumes[ch] = enable ? 1.0 : 0.0
+        }
+        break
+      default:
+        break
     }
   }
 
   protected onVblank(leftV: number): void {
-    if (leftV < 1)
-      this.render()
+    if (leftV < 1) this.render()
     this.updateAudio()
 
-    {  // Swap
+    {
+      // Swap
       const tmp = this.prgBanks
       this.prgBanks = this.prgBanksLast
       this.prgBanksLast = tmp
@@ -376,15 +380,17 @@ export class App {
   }
 
   protected update(elapsedTime: number): void {
-    if (this.nes.getCpu().isPaused())
-      return
+    if (this.nes.getCpu().isPaused()) return
 
     for (let i = 0; i < 2; ++i) {
       const pad = this.screenWnd.getPadStatus(i)
       this.nes.setPadStatus(i, pad)
     }
 
-    const et = Math.min(elapsedTime, MAX_ELAPSED_TIME) * GlobalSetting.emulationSpeed * this.screenWnd.getTimeScale()
+    const et =
+      Math.min(elapsedTime, MAX_ELAPSED_TIME) *
+      GlobalSetting.emulationSpeed *
+      this.screenWnd.getTimeScale()
 
     this.nes.runMilliseconds(et)
   }
@@ -396,15 +402,13 @@ export class App {
   protected sendPrgBankChanges(): void {
     for (let bank = 0; bank < 4; ++bank) {
       const page = this.prgBanks[bank]
-      if (page !== this.prgBanksLast[bank])
-        this.audioManager.onPrgBankChange(bank, page)
+      if (page !== this.prgBanksLast[bank]) this.audioManager.onPrgBankChange(bank, page)
     }
   }
 
   protected updateAudio(): void {
     const audioManager = this.audioManager
-    if (audioManager == null)
-      return
+    if (audioManager == null) return
 
     this.sendPrgBankChanges()
 
@@ -413,36 +417,34 @@ export class App {
       const channel = this.nes.getSoundChannel(ch)
       const enabled = channel.isEnabled()
       audioManager.setChannelEnable(ch, enabled)
-      if (!enabled)
-        continue
+      if (!enabled) continue
 
       const volume = channel.getVolume() * this.channelVolumes[ch]
       audioManager.setChannelVolume(ch, volume)
       if (volume > 0) {
         switch (waveTypes[ch]) {
-        case WaveType.PULSE:
-          {
+          case WaveType.PULSE: {
             const pulse = channel as unknown as IPulseChannel
             audioManager.setChannelDutyRatio(ch, pulse.getDutyRatio())
           }
           // Fallthrough
-        case WaveType.TRIANGLE:
-        case WaveType.SAWTOOTH:
-          audioManager.setChannelFrequency(ch, channel.getFrequency())
-          break
-        case WaveType.NOISE:
-          {
-            const noise = channel as unknown as INoiseChannel
-            const [period, mode] = noise.getNoisePeriod()
-            audioManager.setChannelPeriod(ch, period, mode)
-          }
-          break
-        case WaveType.DMC:
-          {
-            const dmc = channel as unknown as IDeltaModulationChannel
-            audioManager.setChannelDmcWrite(ch, dmc.getWriteBuf())
-          }
-          break
+          case WaveType.TRIANGLE:
+          case WaveType.SAWTOOTH:
+            audioManager.setChannelFrequency(ch, channel.getFrequency())
+            break
+          case WaveType.NOISE:
+            {
+              const noise = channel as unknown as INoiseChannel
+              const [period, mode] = noise.getNoisePeriod()
+              audioManager.setChannelPeriod(ch, period, mode)
+            }
+            break
+          case WaveType.DMC:
+            {
+              const dmc = channel as unknown as IDeltaModulationChannel
+              audioManager.setChannelDmcWrite(ch, dmc.getWriteBuf())
+            }
+            break
         }
       }
     }

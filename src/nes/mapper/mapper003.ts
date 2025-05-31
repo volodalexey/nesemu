@@ -37,6 +37,6 @@ export class Mapper185 extends Mapper003 {
 
   constructor(options: MapperOptions) {
     super(options)
-    options.writePpuDirect(0x0000, 1)  // For "Mighty bomb jack(J)"
+    options.writePpuDirect(0x0000, 1) // For "Mighty bomb jack(J)"
   }
 }

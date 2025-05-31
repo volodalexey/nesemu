@@ -5,14 +5,13 @@ export class MemoryStorage extends Storage {
     super()
   }
 
-  public setItem(key: string, value: any): void {
+  public setItem(key: string, value: unknown): void {
     this.storage[key] = String(value)
   }
 
   public getItem(key: string): string | null {
     const value = this.storage[key]
-    if (typeof value === 'undefined')
-      return null
+    if (typeof value === 'undefined') return null
     return value
   }
 

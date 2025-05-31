@@ -1,7 +1,7 @@
-export namespace Const {
-  export const WIDTH = 256
-  export const HEIGHT = 240
-}
+export const NesConst = {
+  WIDTH: 256,
+  HEIGHT: 240,
+} as const
 
 export const CPU_HZ = 1789773
 

@@ -7,16 +7,16 @@ export class AwDmcChannel extends IDmcChannel {
   private node?: AudioWorkletNode
   private prgRom: Uint8Array | null = null
 
-  public static create(context: AudioContext, destination: AudioNode): AwDmcChannel|null {
-    if (typeof(AudioWorkletNode) === 'undefined')
-      return null
+  public static create(context: AudioContext, destination: AudioNode): AwDmcChannel | null {
+    if (typeof AudioWorkletNode === 'undefined') return null
     return new AwDmcChannel(context, destination)
   }
 
   private constructor(context: AudioContext, destination: AudioNode) {
     super()
 
-    context.audioWorklet.addModule(DmcWorkletURL)
+    context.audioWorklet
+      .addModule(DmcWorkletURL)
       .then(() => {
         this.node = new AudioWorkletNode(context, 'dmc_worklet')
         this.node.connect(destination)
@@ -38,16 +38,15 @@ export class AwDmcChannel extends IDmcChannel {
   }
 
   public setCartridge(cartridge: ICartridge): void {
-    const prgRom = new Uint8Array(cartridge.prgRom)  // Duplicate
-    if (this.node != null)
-      this.sendPrgRom(prgRom)
-    else
-      this.prgRom = prgRom
+    const prgRom = new Uint8Array(cartridge.prgRom) // Duplicate
+    if (this.node != null) this.sendPrgRom(prgRom)
+    else this.prgRom = prgRom
   }
 
   public setDmcWrite(reg: number, value: number): void {
-    if (this.node != null)
+    if (this.node != null) {
       this.node.port.postMessage({action: 'dmcWrite', value: (reg << 8) | value})
+    }
   }
 
   public changePrgBank(bank: number, page: number): void {
@@ -55,23 +54,23 @@ export class AwDmcChannel extends IDmcChannel {
       this.node.port.postMessage({action: 'changePrgBank', value: (bank << 8) | page})
   }
 
-  public start(): void {
-  }
+  public start(): void {}
 
   public setEnable(enable: boolean): void {
-    if (this.node != null)
-      this.node.port.postMessage({action: 'enable', value: enable})
+    if (this.node != null) this.node.port.postMessage({action: 'enable', value: enable})
   }
 
   public setVolume(volume: number): void {
-    if (this.node != null)
-      this.node.port.postMessage({action: 'volume', value: volume})
+    if (this.node != null) this.node.port.postMessage({action: 'volume', value: volume})
   }
 
   private sendPrgRom(prgRom: Uint8Array): void {
-    this.node!.port.postMessage({
-      'action': 'sendPrgRom',
-      prgRom,
-    }, [prgRom.buffer])  // Transferable objects.
+    this.node!.port.postMessage(
+      {
+        action: 'sendPrgRom',
+        prgRom,
+      },
+      [prgRom.buffer],
+    ) // Transferable objects.
   }
 }

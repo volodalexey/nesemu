@@ -22,36 +22,77 @@ export const enum OpType {
   UNKNOWN,
 
   NOP,
-  LDA, STA, LDX, STX, LDY, STY,
-  TAX, TAY, TXA, TYA, TXS, TSX,
+  LDA,
+  STA,
+  LDX,
+  STX,
+  LDY,
+  STY,
+  TAX,
+  TAY,
+  TXA,
+  TYA,
+  TXS,
+  TSX,
 
-  ADC, SBC,
-  INX, INY, INC,
-  DEX, DEY, DEC,
-  AND, ORA, EOR,
-  ROL, ROR, ASL, LSR,
+  ADC,
+  SBC,
+  INX,
+  INY,
+  INC,
+  DEX,
+  DEY,
+  DEC,
+  AND,
+  ORA,
+  EOR,
+  ROL,
+  ROR,
+  ASL,
+  LSR,
   BIT,
-  CMP, CPX, CPY,
+  CMP,
+  CPX,
+  CPY,
 
-  JMP, JSR, RTS, RTI,
-  BCC, BCS, BPL, BMI, BNE, BEQ, BVC, BVS,
+  JMP,
+  JSR,
+  RTS,
+  RTI,
+  BCC,
+  BCS,
+  BPL,
+  BMI,
+  BNE,
+  BEQ,
+  BVC,
+  BVS,
 
-  PHA, PHP, PLA, PLP,
+  PHA,
+  PHP,
+  PLA,
+  PLP,
 
-  CLC, SEC,
-  SEI, CLI, CLV, SED, CLD,
+  CLC,
+  SEC,
+  SEI,
+  CLI,
+  CLV,
+  SED,
+  CLD,
   BRK,
 
   // Unofficial
-  LAX,  // LDA-LDX
-  SAX,  // AND-STA
-  ISB,  // INC-SBC
-  DCP,  // DEC-CMP
-  RLA,  // ROL-AND
-  RRA,  // ROR-ADC
-  SLO,  // ASL-ORA
-  SRE,  // LSR-EOR
-  IGN = NOP, SKB = NOP,
+  LAX, // LDA-LDX
+  SAX, // AND-STA
+  ISB, // INC-SBC
+  DCP, // DEC-CMP
+  RLA, // ROL-AND
+  RRA, // ROR-ADC
+  SLO, // ASL-ORA
+  SRE, // LSR-EOR
+  IGN = NOP,
+  SKB = NOP,
 }
 
 export interface Instruction {

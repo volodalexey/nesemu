@@ -80,59 +80,55 @@ export const kOpcode: Record<number, string> = {
   [OpType.SRE]: 'SRE',
 }
 
-export function disassemble(
-  inst: Instruction, mem: Uint8Array, start: number, pc: number): string
-{
+export function disassemble(inst: Instruction, mem: Uint8Array, start: number, pc: number): string {
   let operand = ''
   switch (inst.addressing) {
-  case Addressing.IMPLIED:
-  case Addressing.ACCUMULATOR:
-    break
-  case Addressing.IMMEDIATE:
-    operand = ` #$${Util.hex(mem[start], 2)}`
-    break
-  case Addressing.IMMEDIATE16:
-    operand = ` #$${Util.hex(mem[start] | (mem[start + 1] << 8), 4)}`
-    break
-  case Addressing.ZEROPAGE:
-    operand = ` $${Util.hex(mem[start], 2)}`
-    break
-  case Addressing.ZEROPAGE_X:
-    operand = ` $${Util.hex(mem[start], 2)}, X`
-    break
-  case Addressing.ZEROPAGE_Y:
-    operand = ` $${Util.hex(mem[start], 2)}, Y`
-    break
-  case Addressing.ABSOLUTE:
-    operand = ` $${Util.hex(mem[start] | (mem[start + 1] << 8), 4)}`
-    break
-  case Addressing.ABSOLUTE_X:
-    operand = ` $${Util.hex(mem[start] | (mem[start + 1] << 8), 4)}, X`
-    break
-  case Addressing.ABSOLUTE_Y:
-    operand = ` $${Util.hex(mem[start] | (mem[start + 1] << 8), 4)}, Y`
-    break
-  case Addressing.INDIRECT:
-    operand = ` ($${Util.hex(mem[start] | (mem[start + 1] << 8), 4)})`
-    break
-  case Addressing.INDIRECT_X:
-    operand = ` ($${Util.hex(mem[start], 2)}, X)`
-    break
-  case Addressing.INDIRECT_Y:
-    operand = ` ($${Util.hex(mem[start], 2)}), Y`
-    break
-  case Addressing.RELATIVE:
-    {
-      const offset = mem[start]
-      if (offset < 0x80)
-        operand = ` +${offset}  ; $${Util.hex(pc + inst.bytes + offset, 4)}`
-      else
-        operand = ` ${offset - 256}  ; $${Util.hex(pc + inst.bytes + offset - 256, 4)}`
-    }
-    break
-  default:
-    console.error(`Unhandled addressing: ${inst.addressing}`)
-    break
+    case Addressing.IMPLIED:
+    case Addressing.ACCUMULATOR:
+      break
+    case Addressing.IMMEDIATE:
+      operand = ` #$${Util.hex(mem[start], 2)}`
+      break
+    case Addressing.IMMEDIATE16:
+      operand = ` #$${Util.hex(mem[start] | (mem[start + 1] << 8), 4)}`
+      break
+    case Addressing.ZEROPAGE:
+      operand = ` $${Util.hex(mem[start], 2)}`
+      break
+    case Addressing.ZEROPAGE_X:
+      operand = ` $${Util.hex(mem[start], 2)}, X`
+      break
+    case Addressing.ZEROPAGE_Y:
+      operand = ` $${Util.hex(mem[start], 2)}, Y`
+      break
+    case Addressing.ABSOLUTE:
+      operand = ` $${Util.hex(mem[start] | (mem[start + 1] << 8), 4)}`
+      break
+    case Addressing.ABSOLUTE_X:
+      operand = ` $${Util.hex(mem[start] | (mem[start + 1] << 8), 4)}, X`
+      break
+    case Addressing.ABSOLUTE_Y:
+      operand = ` $${Util.hex(mem[start] | (mem[start + 1] << 8), 4)}, Y`
+      break
+    case Addressing.INDIRECT:
+      operand = ` ($${Util.hex(mem[start] | (mem[start + 1] << 8), 4)})`
+      break
+    case Addressing.INDIRECT_X:
+      operand = ` ($${Util.hex(mem[start], 2)}, X)`
+      break
+    case Addressing.INDIRECT_Y:
+      operand = ` ($${Util.hex(mem[start], 2)}), Y`
+      break
+    case Addressing.RELATIVE:
+      {
+        const offset = mem[start]
+        if (offset < 0x80) operand = ` +${offset}  ; $${Util.hex(pc + inst.bytes + offset, 4)}`
+        else operand = ` ${offset - 256}  ; $${Util.hex(pc + inst.bytes + offset - 256, 4)}`
+      }
+      break
+    default:
+      console.error(`Unhandled addressing: ${inst.addressing}`)
+      break
   }
   return `${kOpcode[inst.opType]}${operand}`
 }
@@ -147,8 +143,7 @@ export function disasm(bus: IBus, pc: number): string {
     tmpmem[i] = m
     bins[i] = Util.hex(m, 2)
   }
-  for (let i = inst.bytes; i < 3; ++i)
-    bins[i] = '  '
+  for (let i = inst.bytes; i < 3; ++i) bins[i] = '  '
 
   const pcStr = Util.hex(pc, 4)
   const binStr = bins.join(' ')

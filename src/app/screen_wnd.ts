@@ -8,10 +8,9 @@ import {MirrorMode} from '../nes/ppu/types'
 import {Scaler, NearestNeighborScaler, ScanlineScaler, CrtScaler, EpxScaler} from '../util/scaler'
 
 import {App} from './app'
-import {AppEvent} from './app_event'
+import {AppEventType, AppStream} from './app_event'
 import {GlobalSetting} from './global_setting'
 import {ScalerType} from './def'
-import {PadBit, PadValue} from '../nes/apu'
 import {PadKeyHandler} from '../util/pad_key_handler'
 import {KeyboardManager} from '../util/keyboard_manager'
 import {GamepadManager} from '../util/gamepad_manager'
@@ -22,6 +21,7 @@ import {Fds} from '../nes/fds/fds'
 import {FdsCtrlWnd} from './fds_ctrl_wnd'
 
 import * as Pubsub from '../util/pubsub'
+import {PadBit, PadValue} from '../nes/apu/apu.constants'
 
 const WIDTH = 256 | 0
 const HEIGHT = 240 | 0
@@ -119,7 +119,7 @@ const kKeyMapping: {[key: string]: KeyType} = {
   ArrowRight: KeyType.RIGHT,
 }
 
-type Size = {width: number, height: number}
+type Size = {width: number; height: number}
 
 function takeScreenshot(wndMgr: WindowManager, screenWnd: ScreenWnd): Wnd {
   const img = document.createElement('img')
@@ -136,10 +136,8 @@ function takeScreenshot(wndMgr: WindowManager, screenWnd: ScreenWnd): Wnd {
 }
 
 function fitAspectRatio(width: number, height: number, ratio: number): Size {
-  if (width / height >= ratio)
-    width = Math.round(height * ratio) | 0
-  else
-    height = Math.round(width / ratio) | 0
+  if (width / height >= ratio) width = Math.round(height * ratio) | 0
+  else height = Math.round(width / ratio) | 0
   return {width, height}
 }
 
@@ -150,9 +148,12 @@ function contentSize(overscan: boolean): Size {
   }
 }
 
-function maxSize(wndMgr: WindowManager, overscan: boolean): {rootRect: DOMRect, width: number, height: number} {
+function maxSize(
+  wndMgr: WindowManager,
+  overscan: boolean,
+): {rootRect: DOMRect; width: number; height: number} {
   const rootRect = wndMgr.getRootClientRect()
-  const maxWidth = rootRect.width - 2  // -2 for border size
+  const maxWidth = rootRect.width - 2 // -2 for border size
   const maxHeight = rootRect.height - Wnd.TITLEBAR_HEIGHT - Wnd.MENUBAR_HEIGHT - 2
 
   const {width: w, height: h} = contentSize(overscan)
@@ -168,7 +169,7 @@ export class ScreenWnd extends Wnd {
   private messageTimer: any
   private scaler: Scaler
   private overscan = true
-  private contentWidth = 0  // Content size, except fullscreen
+  private contentWidth = 0 // Content size, except fullscreen
   private contentHeight = 0
   private menuItems: Array<MenuItemInfo>
   private scalerType: ScalerType = ScalerType.NEAREST
@@ -182,12 +183,14 @@ export class ScreenWnd extends Wnd {
 
   protected wndMap = new Array<Wnd | null>()
 
-  constructor(wndMgr: WindowManager, protected app: App, protected nes: Nes,
-              protected stream: AppEvent.Stream)
-  {
+  constructor(
+    wndMgr: WindowManager,
+    protected app: App,
+    protected nes: Nes,
+    protected stream: AppStream,
+  ) {
     super(wndMgr, (WIDTH - HEDGE * 2) * 2, (HEIGHT - VEDGE * 2) * 2 + Wnd.MENUBAR_HEIGHT, 'NES')
-    if (app == null || nes == null || stream == null)
-      return
+    if (app == null || nes == null || stream == null) return
 
     this.setUpMenuBar()
     this.contentHolder.style.overflow = 'hidden'
@@ -221,25 +224,23 @@ export class ScreenWnd extends Wnd {
     this.setScaler(GlobalSetting.scaler)
     this.addResizeBox()
 
-    this.subscription = this.stream
-      .subscribe((type: AppEvent.Type, param?: any) => {
-        switch (type) {
-        case AppEvent.Type.RENDER:
+    this.subscription = this.stream.subscribe((type: AppEventType, param?: any) => {
+      switch (type) {
+        case AppEventType.RENDER:
           this.render()
           break
-        case AppEvent.Type.RESET:
+        case AppEventType.RESET:
           this.scaler.reset()
           break
-        case AppEvent.Type.CLOSE_WND:
+        case AppEventType.CLOSE_WND:
           {
             const wnd = param as Wnd
             const i = this.wndMap.indexOf(wnd)
-            if (i >= 0)
-              this.wndMap[i] = null
+            if (i >= 0) this.wndMap[i] = null
           }
           break
-        }
-      })
+      }
+    })
 
     {
       this.overscan = GlobalSetting.overscan
@@ -281,7 +282,8 @@ export class ScreenWnd extends Wnd {
 
     wndMgr.add(this)
 
-    if (window.$DEBUG) {  // Accessing global variable!!!
+    if (window.$DEBUG) {
+      // Accessing global variable!!!
       this.createPaletWnd()
       this.createNameTableWnd()
       this.createPatternTableWnd()
@@ -295,93 +297,88 @@ export class ScreenWnd extends Wnd {
     return this.timeScale
   }
 
-  public onEvent(event: WndEvent, param?: any): any {
+  public onEvent(event: WndEvent, param?: unknown): any {
     switch (event) {
-    case WndEvent.DRAG_BEGIN:
-      if (GlobalSetting.pauseOnMenu)
-        this.stream.triggerPauseApp()
-      break
-    case WndEvent.DRAG_END:
-      if (GlobalSetting.pauseOnMenu)
-        this.stream.triggerResumeApp()
-      break
-    case WndEvent.RESIZE_BEGIN:
-      this.canvasHolder.style.transitionDuration = '0s'
-      if (GlobalSetting.pauseOnMenu)
-        this.stream.triggerPauseApp()
-      break
-    case WndEvent.RESIZE_END:
-      this.saveClientSize(this.getClientSize())
-      this.canvasHolder.style.transitionDuration = TRANSITION_DURATION
-      if (GlobalSetting.pauseOnMenu)
-        this.stream.triggerResumeApp()
-      break
-    case WndEvent.RESIZE_MOVE:
-      {
-        const {width, height} = param
-        this.onResized(width, height)
-      }
-      break
-    case WndEvent.OPEN_MENU:
-      if (GlobalSetting.pauseOnMenu)
-        this.stream.triggerPauseApp()
-      break
-    case WndEvent.CLOSE_MENU:
-      if (GlobalSetting.pauseOnMenu)
-        this.stream.triggerResumeApp()
-      break
-    case WndEvent.UPDATE_FRAME:
-      {
-        const elapsed = param as number
-        this.update(elapsed)
-      }
-      break
-    case WndEvent.FOCUS:
-      if (!param) {
-        this.timeScale = TIME_SCALE_NORMAL
-        this.padKeyHandler.clearAll()
-        this.domKeyboardManager.clear()
-      }
-      break
+      case WndEvent.DRAG_BEGIN:
+        if (GlobalSetting.pauseOnMenu) this.stream.triggerPauseApp()
+        break
+      case WndEvent.DRAG_END:
+        if (GlobalSetting.pauseOnMenu) this.stream.triggerResumeApp()
+        break
+      case WndEvent.RESIZE_BEGIN:
+        this.canvasHolder.style.transitionDuration = '0s'
+        if (GlobalSetting.pauseOnMenu) this.stream.triggerPauseApp()
+        break
+      case WndEvent.RESIZE_END:
+        this.saveClientSize(this.getClientSize())
+        this.canvasHolder.style.transitionDuration = TRANSITION_DURATION
+        if (GlobalSetting.pauseOnMenu) this.stream.triggerResumeApp()
+        break
+      case WndEvent.RESIZE_MOVE:
+        {
+          const {width, height} = param
+          this.onResized(width, height)
+        }
+        break
+      case WndEvent.OPEN_MENU:
+        if (GlobalSetting.pauseOnMenu) this.stream.triggerPauseApp()
+        break
+      case WndEvent.CLOSE_MENU:
+        if (GlobalSetting.pauseOnMenu) this.stream.triggerResumeApp()
+        break
+      case WndEvent.UPDATE_FRAME:
+        {
+          const elapsed = param as number
+          this.update(elapsed)
+        }
+        break
+      case WndEvent.FOCUS:
+        if (!param) {
+          this.timeScale = TIME_SCALE_NORMAL
+          this.padKeyHandler.clearAll()
+          this.domKeyboardManager.clear()
+        }
+        break
 
-    case WndEvent.KEY_DOWN:
-      {
-        const event = param as KeyboardEvent
-        if (!(event.ctrlKey || event.altKey || event.metaKey)) {
-          event.preventDefault()
-          this.domKeyboardManager.onKeyDown(event)
-          if (this.nesKeyboard == null) {
-            switch (event.code) {
-            case 'F1':  // Save state
-              this.saveData()
-              break
-            case 'F3':  // Load state
-              this.loadData()
-              break
-            default: break
+      case WndEvent.KEY_DOWN:
+        {
+          const event = param as KeyboardEvent
+          if (!(event.ctrlKey || event.altKey || event.metaKey)) {
+            event.preventDefault()
+            this.domKeyboardManager.onKeyDown(event)
+            if (this.nesKeyboard == null) {
+              switch (event.code) {
+                case 'F1': // Save state
+                  this.saveData()
+                  break
+                case 'F3': // Load state
+                  this.loadData()
+                  break
+                default:
+                  break
+              }
             }
           }
+
+          if (this.nesKeyboard != null && event.code in kKeyMapping) {
+            this.nesKeyboard.setKeyState(kKeyMapping[event.code], true)
+            event.preventDefault()
+          }
         }
+        break
 
-        if (this.nesKeyboard != null && event.code in kKeyMapping) {
-          this.nesKeyboard.setKeyState(kKeyMapping[event.code], true)
-          event.preventDefault()
+      case WndEvent.KEY_UP:
+        {
+          const event = param as KeyboardEvent
+          if (!(event.ctrlKey || event.altKey || event.metaKey))
+            this.domKeyboardManager.onKeyUp(event)
+          if (this.nesKeyboard != null && event.code in kKeyMapping)
+            this.nesKeyboard.setKeyState(kKeyMapping[event.code], false)
         }
-      }
-      break
+        break
 
-    case WndEvent.KEY_UP:
-      {
-        const event = param as KeyboardEvent
-        if (!(event.ctrlKey || event.altKey || event.metaKey))
-          this.domKeyboardManager.onKeyUp(event)
-        if (this.nesKeyboard != null && event.code in kKeyMapping)
-          this.nesKeyboard.setKeyState(kKeyMapping[event.code], false)
-      }
-      break
-
-    default:
-      break
+      default:
+        break
     }
   }
 
@@ -405,8 +402,7 @@ export class ScreenWnd extends Wnd {
   }
 
   public getPadStatus(padNo: number): number {
-    if (!this.isTop() || this.wndMgr.isBlur())
-      return 0
+    if (!this.isTop() || this.wndMgr.isBlur()) return 0
     let state = this.padKeyHandler.getStatus(padNo) | GamepadManager.getState(padNo)
     if (this.repeatBtnFrame)
       state |= (state & (PadValue.REPEAT_A | PadValue.REPEAT_B)) >> (PadBit.REPEAT_A - PadBit.A)
@@ -431,7 +427,7 @@ export class ScreenWnd extends Wnd {
       } else {
         DomUtil.setStyles(this.contentHolder, {
           backgroundColor: 'black',
-          display: 'flex',  // To locate vertically middle.
+          display: 'flex', // To locate vertically middle.
         })
       }
       this.contentHolder.focus()
@@ -441,8 +437,7 @@ export class ScreenWnd extends Wnd {
   public close(): void {
     this.closeChildrenWindows()
 
-    if (this.subscription != null)
-      this.subscription.unsubscribe()
+    if (this.subscription != null) this.subscription.unsubscribe()
     this.stream.triggerCloseWnd(this)
     super.close()
   }
@@ -463,9 +458,7 @@ export class ScreenWnd extends Wnd {
   }
 
   protected closeChildrenWindows(): void {
-    for (const wnd of Object.values(this.wndMap))
-      if (wnd != null)
-        wnd.close()
+    for (const wnd of Object.values(this.wndMap)) if (wnd != null) wnd.close()
   }
 
   protected setClientScale(scale: number): Size {
@@ -477,14 +470,13 @@ export class ScreenWnd extends Wnd {
   }
 
   protected updateContentSize(width: number, height: number): void {
-    if (!this.fullscreenBase)
-      return
+    if (!this.fullscreenBase) return
 
     const {width: w, height: h} = contentSize(this.overscan)
     const cw = (width * (WIDTH / w)) | 0
     const ch = (height * (HEIGHT / h)) | 0
-    const left = !this.overscan ? 0 : -(cw * HEDGE / WIDTH) | 0
-    const top = !this.overscan ? 0 : -(ch * VEDGE / HEIGHT) | 0
+    const left = !this.overscan ? 0 : -((cw * HEDGE) / WIDTH) | 0
+    const top = !this.overscan ? 0 : -((ch * VEDGE) / HEIGHT) | 0
     DomUtil.setStyles(this.canvasHolder, {
       position: 'absolute',
       width: `${cw}px`,
@@ -503,10 +495,8 @@ export class ScreenWnd extends Wnd {
             label: 'Pause',
             checked: () => this.nes.getCpu().isPaused(),
             click: () => {
-              if (this.nes.getCpu().isPaused())
-                this.stream.triggerRun()
-              else
-                this.stream.triggerPause()
+              if (this.nes.getCpu().isPaused()) this.stream.triggerRun()
+              else this.stream.triggerPause()
             },
           },
           {
@@ -528,17 +518,24 @@ export class ScreenWnd extends Wnd {
             shortcut: 'F1',
             click: () => this.saveData(),
           },
-          (window.showSaveFilePicker == null ? null : {
-            label: window.showSaveFilePicker != null ? 'Save status to file' : 'Download status to file',
-            disabled: () => this.fileHandle == null,
-            click: () => this.app.saveDataTo(this.fileHandle!),
-          }),
+          window.showSaveFilePicker == null
+            ? null
+            : {
+                label:
+                  window.showSaveFilePicker != null
+                    ? 'Save status to file'
+                    : 'Download status to file',
+                disabled: () => this.fileHandle == null,
+                click: () => this.app.saveDataTo(this.fileHandle!),
+              },
           {
-            label: window.showSaveFilePicker != null ? 'Save status to file as...' : 'Download status to file',
+            label:
+              window.showSaveFilePicker != null
+                ? 'Save status to file as...'
+                : 'Download status to file',
             click: async () => {
               const fileHandle = await this.app.saveDataAs()
-              if (fileHandle != null)
-                this.fileHandle = fileHandle
+              if (fileHandle != null) this.fileHandle = fileHandle
             },
           },
           {label: '----'},
@@ -549,7 +546,10 @@ export class ScreenWnd extends Wnd {
             click: () => this.loadData(),
           },
           {
-            label: window.showOpenFilePicker != null ? 'Load status from file' : 'Restore status from file',
+            label:
+              window.showOpenFilePicker != null
+                ? 'Load status from file'
+                : 'Restore status from file',
             click: async () => {
               this.fileHandle = await this.app.loadDataFromFile()
             },
@@ -735,8 +735,12 @@ export class ScreenWnd extends Wnd {
   protected createNameTableWnd(): boolean {
     return this.createSubWnd(WndType.NAME, () => {
       const ppu = this.nes.getPpu()
-      const wnd = new NameTableWnd(this.wndMgr, ppu, this.stream,
-                                   ppu.getMirrorMode() === MirrorMode.HORZ)
+      const wnd = new NameTableWnd(
+        this.wndMgr,
+        ppu,
+        this.stream,
+        ppu.getMirrorMode() === MirrorMode.HORZ,
+      )
       wnd.setPos(520, 40)
       return wnd
     })
@@ -746,21 +750,23 @@ export class ScreenWnd extends Wnd {
     return this.createSubWnd(WndType.PATTERN, () => {
       const getSelectedPalets = (buf: Uint8Array): boolean => {
         const paletWnd = this.wndMap[WndType.PALET] as PaletWnd
-        if (paletWnd == null)
-          return false
+        if (paletWnd == null) return false
         paletWnd.getSelectedPalets(buf)
         return true
       }
-      const wnd = new PatternTableWnd(this.wndMgr, this.nes.getPpu(), this.stream,
-                                      getSelectedPalets)
+      const wnd = new PatternTableWnd(
+        this.wndMgr,
+        this.nes.getPpu(),
+        this.stream,
+        getSelectedPalets,
+      )
       wnd.setPos(520, 300)
       return wnd
     })
   }
 
   protected createAudioWnd(): boolean {
-    return this.createSubWnd(WndType.AUDIO, () =>
-        new AudioWnd(this.wndMgr, this.nes, this.stream))
+    return this.createSubWnd(WndType.AUDIO, () => new AudioWnd(this.wndMgr, this.nes, this.stream))
   }
 
   protected createTraceWnd(): boolean {
@@ -780,8 +786,7 @@ export class ScreenWnd extends Wnd {
   }
 
   protected createRamWnd(): boolean {
-    if (this.wndMap[WndType.RAM] != null)
-      return false
+    if (this.wndMap[WndType.RAM] != null) return false
     const wnd = new RamWnd(this.wndMgr, this.nes, this.stream)
     this.wndMgr.add(wnd)
     this.wndMap[WndType.RAM] = wnd
@@ -797,14 +802,12 @@ export class ScreenWnd extends Wnd {
   }
 
   protected createFpsWnd(): boolean {
-    return this.createSubWnd(WndType.FPS, () =>
-        new FpsWnd(this.wndMgr, this.stream))
+    return this.createSubWnd(WndType.FPS, () => new FpsWnd(this.wndMgr, this.stream))
   }
 
   private update(elapsedTime: number) {
     this.padKeyHandler.update(this.domKeyboardManager)
-    const speedUp = (this.nesKeyboard == null &&
-                     this.domKeyboardManager.getKeyPressing('ShiftLeft'))
+    const speedUp = this.nesKeyboard == null && this.domKeyboardManager.getKeyPressing('ShiftLeft')
     this.timeScale = speedUp ? TIME_SCALE_FAST : TIME_SCALE_NORMAL
 
     this.stream.triggerStartCalc()
@@ -819,7 +822,9 @@ export class ScreenWnd extends Wnd {
     const {width, height} = contentSize(this.overscan)
 
     if (scale > 0)
-      return Math.abs(rect.width - width * scale) < 0.5 && Math.abs(rect.height - height * scale) < 0.5
+      return (
+        Math.abs(rect.width - width * scale) < 0.5 && Math.abs(rect.height - height * scale) < 0.5
+      )
     return Math.abs(rect.width / rect.height - width / height) < 0.005
   }
 
@@ -848,8 +853,7 @@ export class ScreenWnd extends Wnd {
   }
 
   private updateScaler(type: ScalerType): void {
-    if (this.scalerType === type)
-      return
+    if (this.scalerType === type) return
     GlobalSetting.scaler = type
     this.setScaler(type)
     this.render()
@@ -858,19 +862,19 @@ export class ScreenWnd extends Wnd {
   private setScaler(type: ScalerType): void {
     this.scalerType = type
     switch (type) {
-    default:
-    case ScalerType.NEAREST:
-      this.scaler = new NearestNeighborScaler()
-      break
-    case ScalerType.SCANLINE:
-      this.scaler = new ScanlineScaler()
-      break
-    case ScalerType.CRT:
-      this.scaler = new CrtScaler()
-      break
-    case ScalerType.EPX:
-      this.scaler = new EpxScaler()
-      break
+      default:
+      case ScalerType.NEAREST:
+        this.scaler = new NearestNeighborScaler()
+        break
+      case ScalerType.SCANLINE:
+        this.scaler = new ScanlineScaler()
+        break
+      case ScalerType.CRT:
+        this.scaler = new CrtScaler()
+        break
+      case ScalerType.EPX:
+        this.scaler = new EpxScaler()
+        break
     }
     DomUtil.removeAllChildren(this.canvasHolder)
     this.canvasHolder.appendChild(this.scaler.getCanvas())
@@ -882,13 +886,13 @@ export class ScreenWnd extends Wnd {
   }
 
   private loadData(): void {
-    if (this.app.loadData())  // Error is reported in the method.
-    this.showMessage('State loaded!')
+    if (this.app.loadData())
+      // Error is reported in the method.
+      this.showMessage('State loaded!')
   }
 
   protected showMessage(message: string): void {
-    if (this.messageTimer != null)
-      clearTimeout(this.messageTimer)
+    if (this.messageTimer != null) clearTimeout(this.messageTimer)
 
     this.messageHolder.innerText = message
     DomUtil.setStyles(this.messageHolder, {

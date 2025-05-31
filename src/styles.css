@@ -126,7 +126,7 @@ hr {
 }
 
 .menu-item {
-  padding: 0 16px;
+  padding: 0 1rem;
   cursor: pointer;
 
   &:hover {
@@ -253,7 +253,6 @@ hr {
       display: table-cell;
       height: 100%;
       color: #444;
-      font-size: 12px;
       font-weight: normal;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -275,12 +274,9 @@ hr {
     height: 100%;
     overflow: hidden;
     background-color: #ccc;
-    font-size: 10px;
   }
 
   .menu-subitem-holder {
-    font-size: 10px;
-
     @supports (backdrop-filter: none) {
       background-color: rgba(204, 204, 204, 0.8);
     }

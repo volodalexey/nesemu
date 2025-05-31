@@ -1,12 +1,14 @@
 // VRC6
 // http://wiki.nesdev.com/w/index.php/VRC6
 
-import {ChannelBase, IChannel, IPulseChannel, WaveType} from '../../nes/apu'
 import {IrqType} from '../cpu/cpu'
 import {Mapper, MapperOptions} from './mapper'
 import {MirrorMode} from '../ppu/types'
 import {Util} from '../../util/util'
 import {CPU_HZ, VBlank} from '../const'
+import {WaveType} from '../apu/apu.constants'
+import {IPulseChannel} from '../apu/pulse'
+import {ChannelBase, IChannel} from '../apu/channel'
 
 const IRQ_ENABLE_AFTER = 1 << 0
 const IRQ_ENABLE = 1 << 1
@@ -15,7 +17,7 @@ const IRQ_MODE = 1 << 2
 const CH_ENABLE = 1 << 7
 
 const FREQCTL_HALT = 1 << 0
-const FREQCTL_16X  = 1 << 1
+const FREQCTL_16X = 1 << 1
 const FREQCTL_256X = 1 << 2
 
 const kMirrorTable = [MirrorMode.VERT, MirrorMode.HORZ, MirrorMode.SINGLE0, MirrorMode.SINGLE1]
@@ -27,11 +29,7 @@ const kChrBankTable = [
   [0, 1, 2, 3, 4, 4, 5, 5],
 ]
 
-const kWaveTypes: WaveType[] = [
-  WaveType.PULSE,
-  WaveType.PULSE,
-  WaveType.SAWTOOTH,
-]
+const kWaveTypes: WaveType[] = [WaveType.PULSE, WaveType.PULSE, WaveType.SAWTOOTH]
 
 abstract class VrcChannel extends ChannelBase {
   halt = false
@@ -40,21 +38,18 @@ abstract class VrcChannel extends ChannelBase {
 
 class VrcPulseChannel extends VrcChannel implements IPulseChannel {
   public getVolume(): number {
-    if (this.halt || !this.enabled)
-      return 0
+    if (this.halt || !this.enabled) return 0
     return (this.regs[0] & 15) / (15 * 2)
   }
 
   public getFrequency(): number {
     const f = this.regs[1] | ((this.regs[2] & 0x0f) << 8)
-    return (CPU_HZ / 16) / (f + 1) * this.frequencyScaling
+    return (CPU_HZ / 16 / (f + 1)) * this.frequencyScaling
   }
 
   public getDutyRatio(): number {
-    if (this.regs[0] & 0x80)
-      return 1
-    else
-      return (((this.regs[0] >> 4) & 7) + 1) / 8
+    if (this.regs[0] & 0x80) return 1
+    else return (((this.regs[0] >> 4) & 7) + 1) / 8
   }
 }
 
@@ -65,12 +60,12 @@ class SawToothChannel extends VrcChannel {
   public write(reg: number, value: number): void {
     super.write(reg, value)
     switch (reg) {
-    case 2:
-      this.count = 0
-      if ((value & CH_ENABLE) === 0) {
-        this.acc = 0
-      }
-      break
+      case 2:
+        this.count = 0
+        if ((value & CH_ENABLE) === 0) {
+          this.acc = 0
+        }
+        break
     }
   }
 
@@ -93,15 +88,14 @@ class SawToothChannel extends VrcChannel {
   }
 
   public getVolume(): number {
-    if (this.halt || !this.enabled)
-      return 0
+    if (this.halt || !this.enabled) return 0
     // TODO: Use distorted wave.
     return Math.min((this.regs[0] & 0x3f) * (6 / 255), 1)
   }
 
   public getFrequency(): number {
     const f = this.regs[1] | ((this.regs[2] & 0x0f) << 8)
-    return (CPU_HZ / 14) / (f + 1) * this.frequencyScaling
+    return (CPU_HZ / 14 / (f + 1)) * this.frequencyScaling
   }
 }
 
@@ -135,8 +129,7 @@ class Mapper024Base extends Mapper {
       } else if (adr === 0x9003) {
         const halt = (value & FREQCTL_HALT) !== 0
         const scale: number =
-            ((value & FREQCTL_256X) !== 0) ? 256 :
-            ((value & FREQCTL_16X) !== 0) ? 16 : 1
+          (value & FREQCTL_256X) !== 0 ? 256 : (value & FREQCTL_16X) !== 0 ? 16 : 1
         for (const channel of this.channels) {
           channel.halt = halt
           channel.frequencyScaling = scale
@@ -176,25 +169,25 @@ class Mapper024Base extends Mapper {
       } else {
         const low = adr & 0xff
         switch (low) {
-        case 0:  // IRQ Latch: low 4 bits
-          this.irqLatch = value
-          break
-        case 1:  // IRQ Control
-          this.irqControl = value
-          if ((this.irqControl & IRQ_ENABLE) !== 0) {
-            this.irqCounter = this.irqLatch
-          }
-          this.options.clearIrqRequest(IrqType.EXTERNAL)
-          break
-        case 2:  // IRQ Acknowledge
-          {
-            // Copy to enable
-            const ea = this.irqControl & IRQ_ENABLE_AFTER
-            this.irqControl = (this.irqControl & ~IRQ_ENABLE) | (ea << 1)
-          }
-          break
-        default:
-          break
+          case 0: // IRQ Latch: low 4 bits
+            this.irqLatch = value
+            break
+          case 1: // IRQ Control
+            this.irqControl = value
+            if ((this.irqControl & IRQ_ENABLE) !== 0) {
+              this.irqCounter = this.irqLatch
+            }
+            this.options.clearIrqRequest(IrqType.EXTERNAL)
+            break
+          case 2: // IRQ Acknowledge
+            {
+              // Copy to enable
+              const ea = this.irqControl & IRQ_ENABLE_AFTER
+              this.irqControl = (this.irqControl & ~IRQ_ENABLE) | (ea << 1)
+            }
+            break
+          default:
+            break
         }
       }
     })
@@ -238,10 +231,12 @@ class Mapper024Base extends Mapper {
   public onHblank(hcount: number): void {
     if ((this.irqControl & IRQ_ENABLE) !== 0) {
       let c = this.irqCounter
-      if ((this.irqControl & IRQ_MODE) === 0) {  // scanline mode
+      if ((this.irqControl & IRQ_MODE) === 0) {
+        // scanline mode
         c += 1
-      } else {  // cycle mode
-        c += 185  // TODO: Calculate.
+      } else {
+        // cycle mode
+        c += 185 // TODO: Calculate.
       }
       if (c >= 255) {
         c = this.irqLatch
@@ -250,11 +245,10 @@ class Mapper024Base extends Mapper {
       this.irqCounter = c
     }
 
-    if (hcount === VBlank.NMI)
-      this.updateSound()
+    if (hcount === VBlank.NMI) this.updateSound()
   }
 
-  public getExtraChannelWaveTypes(): WaveType[]|null {
+  public getExtraChannelWaveTypes(): WaveType[] | null {
     return kWaveTypes
   }
 
@@ -270,14 +264,12 @@ class Mapper024Base extends Mapper {
 
   private setChrBank(): void {
     const table = kChrBankTable[this.ppuBankMode]
-    for (let i = 0; i < 8; ++i)
-      this.options.setChrBankOffset(i, this.chrRegs[table[i]])
+    for (let i = 0; i < 8; ++i) this.options.setChrBankOffset(i, this.chrRegs[table[i]])
   }
 
   private writeSound(ch: number, reg: number, value: number) {
     const channel = this.channels[ch]
-    if (reg === 2)
-      channel.setEnable((value & CH_ENABLE) !== 0)
+    if (reg === 2) channel.setEnable((value & CH_ENABLE) !== 0)
     channel.write(reg, value)
   }
 
@@ -286,14 +278,14 @@ class Mapper024Base extends Mapper {
       const type = kWaveTypes[i]
       let channel: VrcChannel
       switch (type) {
-      case WaveType.PULSE:
-        channel = new VrcPulseChannel()
-        break
-      case WaveType.SAWTOOTH:
-        channel = new SawToothChannel()
-        break
-      default:
-        continue
+        case WaveType.PULSE:
+          channel = new VrcPulseChannel()
+          break
+        case WaveType.SAWTOOTH:
+          channel = new SawToothChannel()
+          break
+        default:
+          continue
       }
       this.channels[i] = channel
     }

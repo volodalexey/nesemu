@@ -6,15 +6,18 @@ export class StartMenu {
   private itemElem: HTMLElement
   private closeSubmenu: (() => void) | null = null
 
-  public constructor(private root: HTMLElement, private bar: HTMLElement) {
-  }
+  public constructor(
+    private root: HTMLElement,
+    private bar: HTMLElement,
+  ) {}
 
   public setUp(label: string, submenuItems: Array<SubmenuItemInfo>): void {
     this.submenuItems = submenuItems
 
     this.closeSubmenu = null
 
-    const itemElem = document.createElement('div')
+    const itemElem = document.createElement('button')
+    itemElem.setAttribute('type', 'button')
     itemElem.className = 'start-menu-item pull-left'
     itemElem.innerText = label
     itemElem.addEventListener('click', event => {
@@ -43,8 +46,7 @@ export class StartMenu {
   }
 
   private showSubmenu(): void {
-    if (this.closeSubmenu != null)
-      this.closeSubmenu()
+    if (this.closeSubmenu != null) this.closeSubmenu()
 
     this.closeSubmenu = this.openSubmenu(this.itemElem, () => this.onClose())
     this.itemElem.classList.add('opened')
